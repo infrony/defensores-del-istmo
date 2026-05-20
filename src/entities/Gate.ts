@@ -1,14 +1,28 @@
 import Phaser from 'phaser';
 
-export type GateOp = '+' | '-' | '×' | '÷';
+export type GateOp = '+' | '-' | '×' | '÷' | 'upgrade';
 
 /** Ancho y alto de la textura — usados para AABB y posicionamiento. */
 export const GATE_W = 370;
 export const GATE_H = 160;
 
+function texForOp(op: GateOp): string {
+  if (op === '+' || op === '×') return 'gate-positive';
+  if (op === 'upgrade') return 'gate-upgrade';
+  return 'gate-negative';
+}
+
+function labelColor(op: GateOp): string {
+  if (op === '+' || op === '×') return '#c8ffd0';
+  if (op === 'upgrade') return '#fff0a0';
+  return '#ffd0d0';
+}
+
 export class Gate extends Phaser.Physics.Arcade.Image {
   public readonly op: GateOp;
   public readonly value: number;
+  /** Para 'upgrade': nombre de la clase que otorga (p. ej. 'ngabe'). */
+  public readonly upgradeClass: string;
   public alive = true;
 
   private label: Phaser.GameObjects.Text;
@@ -20,23 +34,24 @@ export class Gate extends Phaser.Physics.Arcade.Image {
     op: GateOp,
     value: number,
     speed: number,
+    upgradeClass = '',
   ) {
-    const tex = op === '+' || op === '×' ? 'gate-positive' : 'gate-negative';
-    super(scene, x, y, tex);
+    super(scene, x, y, texForOp(op));
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.op = op;
     this.value = value;
+    this.upgradeClass = upgradeClass;
     this.setDepth(7);
     this.setVelocityY(speed);
 
-    const isPos = op === '+' || op === '×';
+    const labelText = op === 'upgrade' ? `⚔ ${upgradeClass}` : `${op}${value}`;
     this.label = scene.add
-      .text(x, y, `${op}${value}`, {
+      .text(x, y, labelText, {
         fontFamily: 'sans-serif',
-        fontSize: '80px',
+        fontSize: op === 'upgrade' ? '52px' : '80px',
         fontStyle: 'bold',
-        color: isPos ? '#c8ffd0' : '#ffd0d0',
+        color: labelColor(op),
         stroke: '#1a1a1a',
         strokeThickness: 7,
         align: 'center',

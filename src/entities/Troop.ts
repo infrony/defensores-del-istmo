@@ -25,6 +25,11 @@ export class Troop extends Phaser.GameObjects.Image {
   /** Resolved world target (relative to player position). Updated by FormationManager each frame. */
   public targetX = 0;
   public targetY = 0;
+  /**
+   * Multiplicador de daño inyectado por FormationManager cada tick.
+   * Escala con el tamaño de la formación: más tropas = más poder individual.
+   */
+  public damageMultiplier = 1;
 
   private cooldown = 0;
   private currentTarget: Enemy | null = null;
@@ -70,7 +75,8 @@ export class Troop extends Phaser.GameObjects.Image {
     const dist = Math.sqrt(distSq) || 1;
     const vx = (dx / dist) * this.projectileSpeed;
     const vy = (dy / dist) * this.projectileSpeed;
-    pool.fire(this.x, this.y - 20, vx, vy, this.damage);
+    const finalDamage = Math.round(this.damage * this.damageMultiplier);
+    pool.fire(this.x, this.y - 20, vx, vy, finalDamage);
     this.cooldown = this.fireRateMs;
   }
 }

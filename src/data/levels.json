@@ -1,0 +1,23 @@
+{
+  "levels": [
+    {
+      "id": "veraguas-1502-1",
+      "chapter": 1,
+      "name": "Desembarco en Veraguas",
+      "durationM": 80,
+      "waves": [
+        { "atM": 0,  "enemy": "sailor",       "count": 3, "intervalMs": 900 },
+        { "atM": 10, "enemy": "sailor",       "count": 5, "intervalMs": 750 },
+        { "atM": 20, "enemy": "sailor",       "count": 4, "intervalMs": 700 },
+        { "atM": 25, "enemy": "conquistador", "count": 2, "intervalMs": 1200 },
+        { "atM": 35, "enemy": "sailor",       "count": 6, "intervalMs": 650 },
+        { "atM": 40, "enemy": "conquistador", "count": 3, "intervalMs": 1000 },
+        { "atM": 50, "enemy": "sailor",       "count": 8, "intervalMs": 600 },
+        { "atM": 55, "enemy": "conquistador", "count": 4, "intervalMs": 900 },
+        { "atM": 65, "enemy": "sailor",       "count": 6, "intervalMs": 550 },
+        { "atM": 65, "enemy": "conquistador", "count": 3, "intervalMs": 1000 },
+        { "atM": 75, "enemy": "boss-mendez",  "count": 1, "intervalMs": 0 }
+      ]
+    }
+  ]
+}

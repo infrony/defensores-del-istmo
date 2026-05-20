@@ -4,6 +4,7 @@ export interface EnemyConfig {
   texture: string;
   hp: number;
   speed: number; // px/s descendentes
+  isBoss?: boolean;
 }
 
 export class Enemy extends Phaser.Physics.Arcade.Image {

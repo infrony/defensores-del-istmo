@@ -5,7 +5,7 @@ export const ARCHER_GUNA_CFG = {
   texture: 'troop-archer',
   hp: 30,
   damage: 8,
-  range: 520,
+  range: 1400,
   fireRateMs: 420,
   projectileSpeed: 900,
 } as const;

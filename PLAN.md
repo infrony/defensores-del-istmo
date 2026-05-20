@@ -39,18 +39,21 @@
 ### Sprint 0.1 — Setup técnico (semana 1)
 - [x] Crear `PRD_Defensores_del_Istmo.md` (ya existe)
 - [x] Crear `PLAN.md` (este documento)
-- [ ] `git init`, `.gitignore`, repo remoto (GitHub privado)
-- [ ] Scaffold: Vite + TypeScript + Phaser 3.80 + ESLint + Prettier
-- [ ] Estructura de carpetas según PRD §7.2
-- [ ] BootScene + PreloadScene + GameScene vacías corriendo en localhost
-- [ ] **Prototipo mínimo:** sprite del jugador moviéndose con swipe horizontal sobre fondo que hace scroll
-- [ ] Primer commit etiquetado `v0.0.1-scaffold`
+- [x] `git init`, `.gitignore`, primer commit
+- [x] Scaffold: Vite + TypeScript + Phaser 3.80 + ESLint + Prettier
+- [x] Estructura de carpetas según PRD §7.2
+- [x] BootScene + PreloadScene + GameScene corriendo en localhost
+- [x] **Prototipo mínimo:** sprite del jugador moviéndose con drag/swipe horizontal sobre fondo que hace scroll
+- [x] Controles teclado (← →, A/D) para testeo en desktop
+- [ ] Primer commit etiquetado `v0.0.1-scaffold` (commit existe, falta tag)
+- [ ] Repo remoto (GitHub privado)
 
 ### Sprint 0.2 — Validación de concepto (semana 2)
 - [ ] Jugar 10+ partidas de *Last War*, *Last Z*, *Crowd Evolution*. Cuaderno de notas: qué se siente bien, qué fricción tienen
-- [ ] Decisión técnica documentada: orientación portrait fija (sí) + resolución base (1080×1920) + safe areas
-- [ ] Prototipo de puerta multiplicadora (solo `+N`, sin arte) — confirmar que el feel del swipe + colisión funciona
-- [ ] Capacitor instalado, build iOS + Android genera y abre en device real (sin lógica final, solo la escena de prueba)
+- [x] Decisión técnica documentada: orientación portrait fija + resolución base 1080×1920 (`config.ts` + `CLAUDE.md`)
+- [x] Prototipo de puerta multiplicadora (`+N`, `-N`, `×N`, `÷N`) — colisión AABB jugador↔puerta, efecto en formación, texto flotante, ripple tween
+- [x] Puerta dorada de upgrade (⚔ Ngäbe) — cada 60 m convierte mitad de la formación al tipo melee
+- [ ] Capacitor instalado, build iOS + Android genera y abre en device real
 
 ### Sprint 0.3 — Identidad visual (semana 3)
 - [ ] 3 concept arts generados (Midjourney + retoque):
@@ -77,34 +80,37 @@
 **Meta:** Un nivel jugable completo de Cap. 1 (Veraguas 1502), de inicio a fin, con el loop entero. Sin metajuego aún.
 
 ### Sprint 1.1 — Core movement & formation (sem 4–5)
-- [ ] `Player` entity con swipe-to-move suavizado (lerp, no teleport)
-- [ ] `FormationManager` con grid lógico 5×N relativo al líder
-- [ ] `Troop` clase base + 1 clase: **Arquero Guna**
-- [ ] Auto-aim: cada tropa apunta al enemigo más cercano cada 200 ms
-- [ ] `Projectile` con pooling (`Phaser.GameObjects.Group`)
-- [ ] 1 enemigo placeholder (cuadrado rojo) que recibe daño y muere
+- [x] `Player` entity con swipe-to-move suavizado (lerp, no teleport)
+- [x] `FormationManager` con grid lógico 5×N relativo al líder
+- [x] `Troop` clase base + 1 clase: **Arquero Guna**
+- [x] Auto-aim: cada tropa apunta al enemigo más cercano cada 200 ms (`CombatSystem` + `SpatialHash`)
+- [x] `Projectile` con pooling (`Phaser.Physics.Arcade.Group`)
+- [x] 1 enemigo (Marinero) con HP que recibe daño y muere, flash VFX
 - [ ] Tests manuales en device: 60fps con 30 tropas + 50 enemigos
 
 ### Sprint 1.2 — Puertas y obstáculos (sem 6)
-- [ ] `Gate` entity con operación (`+N`, `×N`, `−N`, `÷N`)
-- [ ] `GateSpawner`: spawnea pares (mejor + peor) cada X distancia
-- [ ] Lógica de colisión: el grupo entero pasa por una sola puerta
-- [ ] Feedback visual: número flotante + cambio de tamaño formación
-- [ ] `Obstacle`: barril con HP visible
+- [x] `Gate` entity con operación (`+N`, `×N`, `−N`, `÷N`, `upgrade`)
+- [x] `GateSpawner`: spawnea pares (positiva + negativa) cada 14 m; par de upgrade cada 60 m
+- [x] Lógica de colisión AABB: jugador entra por una puerta, la otra sigue scrolleando
+- [x] Feedback visual: número flotante animado + ripple de escala en formación
+- [x] `Obstacle`: barril con HP visible, recibe daño de proyectiles, baja scrolleando
 
 ### Sprint 1.3 — Enemigos y oleadas (sem 7–8)
-- [ ] 2 tipos de enemigo: marinero (rápido, low HP) + conquistador (medio HP)
-- [ ] `SpawnManager` con scripts de oleadas en JSON (`data/levels.json`)
-- [ ] Sistema de daño con números flotantes (DamageText pooled)
-- [ ] Screen shake + flash en hit crítico
-- [ ] 2ª clase de tropa: **Guerrero Ngäbe** (melé)
+- [x] 2 tipos de enemigo: Marinero (rápido, low HP) + Conquistador (lento, medio HP — aparece tras 30 s)
+- [x] `SpawnManager` con scripts de oleadas en JSON (`src/data/levels.json`) — nivel "Veraguas 1502" con 11 waves + trigger de boss
+- [x] Sistema de daño con números flotantes (`DamageText` pool, 30 slots, críticos en amarillo)
+- [x] Screen shake en kill (60ms/0.004) y hit crítico (40ms/0.002)
+- [x] 2ª clase de tropa: **Guerrero Ngäbe** (melé, rango 200 px → ajustado a 500 px, daño alto)
+- [x] Fix rango de tropas (1400 px ArcherGuna, 500 px GuerreroNgäbe) — combate arranca inmediatamente
+- [x] Pre-spawn 18 enemigos en pantalla al inicio del juego — horda visible desde el frame 1
+- [x] Tasa de spawn aumentada a 400 ms / 2–3 por batch para sensación de horda (ref: Last Z)
 
 ### Sprint 1.4 — Jefe y cierre del run (sem 9)
-- [ ] `Boss` (Diego Méndez): HP barra grande, 2 patrones de ataque telegrafiados
-- [ ] `BossScene` (o variante de GameScene)
-- [ ] Pantalla de victoria con cofre + recompensa (oro)
-- [ ] Pantalla de derrota con "revivir" (placeholder, sin ads aún)
-- [ ] Save/load local con `localStorage`
+- [x] `Boss` Diego Méndez: HP barra grande, 2 patrones de ataque telegrafados (barrido + embestida)
+- [x] Boss integrado como variante dentro de `GameScene` (no requirió escena aparte)
+- [x] Pantalla de victoria con cofre animado, stats y "¡Nueva marca!" si aplica
+- [x] Pantalla de derrota con mejor marca y botones "REINTENTAR" / "Menú principal"
+- [x] Save/load local con `localStorage` (`SaveSystem`: `bestDistance`, `bestKills`, `totalRuns`)
 
 ### Sprint 1.5 — Pulido y arte final del slice (sem 10–11)
 - [ ] Reemplazar placeholders con sprites finales generados con IA
@@ -297,13 +303,46 @@ Cada fin de fase, retrospectiva escrita:
 
 ---
 
-## 12. Próximos pasos inmediatos (esta semana)
+## 12. Estado actual y próximos pasos
 
-1. ✅ Plan creado (este doc)
-2. ⏳ Scaffold del proyecto (Vite + Phaser + TS + estructura)
-3. ⏳ Primer commit jugable: player movible con swipe en lane vertical con scroll
-4. ⏳ `git init` + repo remoto
-5. ⏳ Empezar Sprint 0.2 (validación + estudio competencia)
+**Completado:**
+1. ✅ Scaffold Vite + Phaser 3 + TS + ESLint + Prettier
+2. ✅ Primer commit jugable (player, scroll, formación, combate, HUD)
+3. ✅ Sistema de puertas completo (Sprint 0.2 / 1.2): `+`, `-`, `×`, `÷`, upgrade dorada
+4. ✅ Guerrero Ngäbe (melé) + Conquistador (enemigo medio HP)
+5. ✅ `CLAUDE.md` con arquitectura y comandos
+
+**También completado (bugfix + mecánica):**
+
+- [x] Damage scaling: `daño = baseDamage × (1 + 0.12 × √(n−1))` — más tropas = más daño por proyectil
+- [x] HUD muestra multiplicador `⚡×N.NN` cuando la formación es ≥ 10% más fuerte
+- [x] Fix: `ObstacleManager` usaba `StaticGroup` incompatible con el body dinámico de `Obstacle`
+
+**También completado (bugfix + Sprint 1.4 completo):**
+
+- [x] Fix: puertas negativas (`-`, `÷`) ahora pueden reducir tropas a 0 — el clamp `Math.max(1, …)` fue eliminado
+- [x] Pantalla de derrota: overlay con título "DERROTA", distancia recorrida, kills, mejor marca, botones "REINTENTAR" y "Menú principal"
+- [x] Update loop se pausa al activarse game over o victoria (flags `gameOverActive`, `victoryActive`)
+- [x] `BossMendez` entity: 1500 HP, escala 1.9×, settle en y=480; 2 patrones telegrafados — Barrido horizontal (telegraph amarillo → velocidad X) + Embestida (telegraph rojo → velocidad Y + retorno)
+- [x] Boss spawneado por `SpawnManager` al alcanzar 75 m (wave `boss-mendez` en `levels.json`)
+- [x] `EnemySpawner` suprime spawn normal durante boss fight; llama `bossUpdate(delta)` cada frame
+- [x] Barra de HP del boss (700×36 px, centrada en y=150): nombre "DIEGO MÉNDEZ", fill rojo → naranja → rojo brillante según %, porcentaje y HP numérico
+- [x] Al spawn del boss se eliminan todos los enemigos normales vivos
+- [x] `SaveSystem` (`localStorage`): `bestDistance`, `bestKills`, `totalRuns`; guarda al fin de cada run (victoria o derrota)
+- [x] Pantalla de victoria: overlay azul oscuro + "¡VICTORIA!" dorado + cofre placeholder animado + stats + "¡Nueva marca!" si aplica + botones "JUGAR DE NUEVO" / "Menú principal"
+
+**Pendiente (Sprint 1.5 — Pulido y arte):**
+
+- Reemplazar placeholders con sprites finales generados con IA
+- 1 tema musical + 6 SFX clave (disparo, hit, puerta+, puerta−, jefe, victoria)
+- HUD: oro (preparar campo), HP del líder
+- Onboarding suave (3 tooltips la primera vez)
+- Playtest externo con 3–5 personas no técnicas
+
+**Pendiente Sprint 0.2:**
+
+- Capacitor setup + build en device real
+- Repo remoto GitHub privado + tag `v0.0.1-scaffold`
 
 ---
 

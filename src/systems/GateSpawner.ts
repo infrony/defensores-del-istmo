@@ -4,6 +4,7 @@ import { LANE } from '../config';
 
 const GATE_SPEED = 480;
 const SPAWN_EVERY_M = 14;
+const UPGRADE_EVERY_M = 60; // puerta dorada cada 60 m
 
 // Distancia horizontal entre el borde del lane y el borde exterior de cada puerta
 const MARGIN = Math.floor((LANE.rightBound - LANE.leftBound - GATE_W * 2) / 3);
@@ -15,17 +16,19 @@ export { GATE_W, GATE_H };
 export class GateSpawner {
   private gates: Gate[] = [];
   private distAccum = 0;
+  private upgradeAccum = 0;
 
   constructor(private scene: Phaser.Scene) {}
 
-  /**
-   * @param distDelta  metros avanzados este frame (mismo valor que GameScene.distance delta)
-   * @param troopCount  tropas actuales — para escalar los valores de las puertas
-   */
   update(distDelta: number, bottomY: number, troopCount: number): void {
     this.distAccum += distDelta;
+    this.upgradeAccum += distDelta;
 
-    if (this.distAccum >= SPAWN_EVERY_M) {
+    if (this.upgradeAccum >= UPGRADE_EVERY_M) {
+      this.upgradeAccum -= UPGRADE_EVERY_M;
+      this.distAccum = 0; // resetea par normal para no solapar
+      this.spawnUpgradePair();
+    } else if (this.distAccum >= SPAWN_EVERY_M) {
       this.distAccum -= SPAWN_EVERY_M;
       this.spawnPair(troopCount);
     }
@@ -60,6 +63,19 @@ export class GateSpawner {
     this.gates.push(
       new Gate(this.scene, posX, y, posOp, posVal, GATE_SPEED),
       new Gate(this.scene, negX, y, negOp, negVal, GATE_SPEED),
+    );
+  }
+
+  /** Par especial: upgrade (Ngäbe) vs penalización moderada. */
+  private spawnUpgradePair(): void {
+    const upgradeOnLeft = Math.random() < 0.5;
+    const upgradeX = upgradeOnLeft ? LEFT_CX : RIGHT_CX;
+    const penaltyX = upgradeOnLeft ? RIGHT_CX : LEFT_CX;
+    const y = -GATE_H / 2 - 20;
+
+    this.gates.push(
+      new Gate(this.scene, upgradeX, y, 'upgrade', 0, GATE_SPEED, 'Ngäbe'),
+      new Gate(this.scene, penaltyX, y, '-', 3, GATE_SPEED),
     );
   }
 
