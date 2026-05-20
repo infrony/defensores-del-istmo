@@ -19,3 +19,7 @@ android/.idea/
 *.tsbuildinfo
 coverage/
 .cache/
+
+.agents/
+.claude/
+skills-lock.json

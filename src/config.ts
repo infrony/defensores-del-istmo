@@ -31,7 +31,6 @@ export function createGameConfig(scenes: SceneCtor[]): Phaser.Types.Core.GameCon
       autoCenter: Phaser.Scale.CENTER_BOTH,
       width: GAME_WIDTH,
       height: GAME_HEIGHT,
-      orientation: Phaser.Scale.PORTRAIT,
     },
     physics: {
       default: 'arcade',
