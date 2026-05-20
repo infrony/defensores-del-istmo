@@ -113,10 +113,14 @@
 - [x] Save/load local con `localStorage` (`SaveSystem`: `bestDistance`, `bestKills`, `totalRuns`)
 
 ### Sprint 1.5 — Pulido y arte final del slice (sem 10–11)
-- [ ] Reemplazar placeholders con sprites finales generados con IA
-- [ ] 1 tema musical + 6 SFX clave (disparo, hit, puerta+, puerta−, jefe, victoria)
-- [ ] HUD: oro, HP, contador de tropas
-- [ ] Onboarding suave (3 tooltips la primera vez)
+
+- [ ] Reemplazar placeholders con sprites finales generados con IA *(requiere pipeline Midjourney/Scenario.gg)*
+- [ ] 1 tema musical + 6 SFX clave *(requiere assets de audio externos)*
+- [x] HUD expandido: línea 1 `distancia / tropas / kills`, línea 2 `❤ HP/maxHP  💰 oro`
+- [x] Sistema de HP del jugador (200 HP, enemigos dañan al llegar a PLAYER_Y, flash rojo, barra sobre el sprite)
+- [x] Sistema de oro: `goldValue` por tipo de enemigo (marinero=1, conquistador=3, boss=50); acumulado en HUD y pantallas de fin de run
+- [x] `SaveSystem` actualizado con `bestGold`; victoria muestra mejor oro y runs totales
+- [x] Onboarding: 3 tooltips en primera partida (tooltip 0 auto-dismiss 3 s, 1 y 2 trigger por distancia + tap para cerrar); flag `defensores_tutorial_v1` en `localStorage`
 - [ ] **Playtest externo** con 3–5 personas no técnicas. Grabar sesiones
 
 ### Definition of Done Fase 1

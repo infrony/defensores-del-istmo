@@ -5,6 +5,8 @@ export interface EnemyConfig {
   hp: number;
   speed: number; // px/s descendentes
   isBoss?: boolean;
+  goldValue?: number; // oro ganado al matar
+  damage?: number;    // daño al jugador si llega a PLAYER_Y
 }
 
 export class Enemy extends Phaser.Physics.Arcade.Image {
@@ -12,6 +14,8 @@ export class Enemy extends Phaser.Physics.Arcade.Image {
   public maxHp: number;
   public speed: number;
   public alive = true;
+  public goldValue: number;
+  public damage: number;
 
   constructor(scene: Phaser.Scene, x: number, y: number, cfg: EnemyConfig) {
     super(scene, x, y, cfg.texture);
@@ -20,6 +24,8 @@ export class Enemy extends Phaser.Physics.Arcade.Image {
     this.maxHp = cfg.hp;
     this.hp = cfg.hp;
     this.speed = cfg.speed;
+    this.goldValue = cfg.goldValue ?? 1;
+    this.damage = cfg.damage ?? 15;
     this.setDepth(8);
     this.setVelocity(0, cfg.speed);
   }
@@ -30,6 +36,8 @@ export class Enemy extends Phaser.Physics.Arcade.Image {
     this.maxHp = cfg.hp;
     this.hp = cfg.hp;
     this.speed = cfg.speed;
+    this.goldValue = cfg.goldValue ?? 1;
+    this.damage = cfg.damage ?? 15;
     this.alive = true;
     this.setActive(true).setVisible(true);
     if (this.body) {

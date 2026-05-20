@@ -80,6 +80,6 @@ BootScene → PreloadScene → MainMenuScene → GameScene
 
 - **Mobile-first portrait** — 1080×1920 base, scaled via `Phaser.Scale.FIT`. Never redesign for landscape.
 - **Performance target** — 60 fps on iPhone 12 / Pixel 5 with 30 troops + 50 enemies. Use object pooling for anything spawned repeatedly. `SpatialHash` exists precisely for this; don't replace with O(n²) nearest-neighbor.
-- **Scope** — PRD and PLAN.md are the source of truth. Features not in those documents go to "backlog v1.1", not into the current sprint.
+- **Scope** — `docs/PRD_Defensores_del_Istmo.md` and `docs/PLAN.md` are the source of truth. Features not in those documents go to "backlog v1.1", not into the current sprint.
 - **No backend** — everything is local (`localStorage` for save). Cloud sync is post-launch.
 - **Cultural accuracy** — protagonist is Tanela (Quibián warrior). Art and narrative must reference Guna molas, Coclé/Veragüense gold, and petroglifos. No generic indigenous stereotypes.

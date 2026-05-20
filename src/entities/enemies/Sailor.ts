@@ -4,4 +4,6 @@ export const SAILOR_CFG: EnemyConfig = {
   texture: 'enemy-sailor',
   hp: 24,
   speed: 220,
+  goldValue: 1,
+  damage: 15,
 };

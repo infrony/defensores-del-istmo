@@ -20,17 +20,24 @@ const SCROLL_SPEED = 480;
 const PLAYER_LERP = 0.22;
 const PLAYER_Y = GAME_HEIGHT - 380;
 const INITIAL_TROOPS = 6;
-const KEY_SPEED = 900; // px/s con teclado
+const KEY_SPEED = 900;
 
-// AABB de colisión jugador↔puerta (mitades)
+const PLAYER_MAX_HP = 200;
+// Enemies deal damage when they reach this Y (just above player)
+const DAMAGE_THRESHOLD_Y = PLAYER_Y - 50;
+
 const GATE_HIT_HW = GATE_W / 2 - 20;
 const GATE_HIT_HH = GATE_H / 2 - 10;
 
-// Boss HP bar dimensions
+// Boss HP bar
 const BOSS_BAR_W = 700;
 const BOSS_BAR_H = 36;
 const BOSS_BAR_X = GAME_WIDTH / 2;
 const BOSS_BAR_Y = 150;
+
+// Player HP bar (small, near player sprite)
+const PLAYER_BAR_W = 160;
+const PLAYER_BAR_H = 14;
 
 export class GameScene extends Phaser.Scene {
   private lane!: Phaser.GameObjects.TileSprite;
@@ -45,6 +52,9 @@ export class GameScene extends Phaser.Scene {
   private gameOverActive = false;
   private victoryActive = false;
 
+  private playerHp = PLAYER_MAX_HP;
+  private gold = 0;
+
   private formation!: FormationManager;
   private projectiles!: ProjectilePool;
   private enemies!: EnemySpawner;
@@ -56,15 +66,29 @@ export class GameScene extends Phaser.Scene {
 
   private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
 
+  // HUD elements
   private hud!: Phaser.GameObjects.Text;
+  private hudStats!: Phaser.GameObjects.Text;
   private fpsText!: Phaser.GameObjects.Text;
+  private playerHpBarBg!: Phaser.GameObjects.Rectangle;
+  private playerHpBarFill!: Phaser.GameObjects.Rectangle;
   private kills = 0;
 
-  // Boss HP bar (visible only during boss fight)
+  // Boss HP bar
   private bossBarBg!: Phaser.GameObjects.Rectangle;
   private bossBarFill!: Phaser.GameObjects.Rectangle;
   private bossBarLabel!: Phaser.GameObjects.Text;
   private bossBarName!: Phaser.GameObjects.Text;
+  private bossBarShown = false;
+
+  // Onboarding
+  private tooltipOverlay!: Phaser.GameObjects.Container;
+  private tooltipStep = 0;
+  private readonly TOOLTIPS = [
+    { text: 'Arrastra o usa ← → para moverte', triggerM: -1 },
+    { text: 'Elige la puerta VERDE ➕ para ganar tropas', triggerM: 8 },
+    { text: '¡El Jefe llega a los 75 m!\nEliminalo para ganar', triggerM: 60 },
+  ];
 
   constructor() {
     super({ key: 'GameScene' });
@@ -73,6 +97,10 @@ export class GameScene extends Phaser.Scene {
   create(): void {
     this.gameOverActive = false;
     this.victoryActive = false;
+    this.playerHp = PLAYER_MAX_HP;
+    this.gold = 0;
+    this.bossBarShown = false;
+    this.tooltipStep = 0;
 
     this.cameras.main.setBackgroundColor(0x0b1d2a);
 
@@ -105,7 +133,6 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < INITIAL_TROOPS; i++) {
       this.spawnTroop();
     }
-
     this.spawnInitialEnemies();
 
     this.physics.add.overlap(
@@ -115,7 +142,6 @@ export class GameScene extends Phaser.Scene {
       undefined,
       this,
     );
-
     this.physics.add.overlap(
       this.projectiles.group,
       this.obstacles.group,
@@ -126,8 +152,15 @@ export class GameScene extends Phaser.Scene {
 
     this.setupInput();
     this.setupHud();
+    this.setupPlayerHpBar();
     this.setupBossBar();
     this.setupKeys();
+
+    if (!SaveSystem.hasSeenOnboarding()) {
+      this.showTooltip(0);
+    } else {
+      this.tooltipStep = this.TOOLTIPS.length; // skip all
+    }
   }
 
   // ── Input ──────────────────────────────────────────────────────────────────
@@ -168,10 +201,22 @@ export class GameScene extends Phaser.Scene {
 
   private setupHud(): void {
     this.hud = this.add
-      .text(GAME_WIDTH / 2, 60, '', {
+      .text(GAME_WIDTH / 2, 46, '', {
         fontFamily: 'sans-serif',
-        fontSize: '36px',
+        fontSize: '34px',
         color: '#e8c170',
+        stroke: '#1a1a1a',
+        strokeThickness: 4,
+        align: 'center',
+      })
+      .setOrigin(0.5, 0)
+      .setDepth(100);
+
+    this.hudStats = this.add
+      .text(GAME_WIDTH / 2, 94, '', {
+        fontFamily: 'sans-serif',
+        fontSize: '30px',
+        color: '#c8e8d0',
         stroke: '#1a1a1a',
         strokeThickness: 4,
         align: 'center',
@@ -201,11 +246,38 @@ export class GameScene extends Phaser.Scene {
     back.on('pointerup', () => this.scene.start('MainMenuScene'));
   }
 
+  // ── Player HP bar ─────────────────────────────────────────────────────────
+
+  private setupPlayerHpBar(): void {
+    const barY = PLAYER_Y - 70;
+    this.playerHpBarBg = this.add
+      .rectangle(LANE.centerX, barY, PLAYER_BAR_W, PLAYER_BAR_H, 0x330000)
+      .setDepth(13);
+    this.playerHpBarFill = this.add
+      .rectangle(
+        LANE.centerX - PLAYER_BAR_W / 2,
+        barY,
+        PLAYER_BAR_W,
+        PLAYER_BAR_H,
+        0xdd2222,
+      )
+      .setOrigin(0, 0.5)
+      .setDepth(14);
+  }
+
+  private updatePlayerHpBar(): void {
+    const ratio = this.playerHp / PLAYER_MAX_HP;
+    this.playerHpBarFill.width = PLAYER_BAR_W * ratio;
+    this.playerHpBarBg.x = this.player.x;
+    this.playerHpBarFill.x = this.player.x - PLAYER_BAR_W / 2;
+    const color = ratio > 0.5 ? 0x44dd44 : ratio > 0.25 ? 0xddaa00 : 0xdd2222;
+    this.playerHpBarFill.setFillStyle(color);
+  }
+
   // ── Boss HP Bar ───────────────────────────────────────────────────────────
 
   private setupBossBar(): void {
     const depth = 100;
-
     this.bossBarName = this.add
       .text(BOSS_BAR_X, BOSS_BAR_Y - 44, 'DIEGO MÉNDEZ', {
         fontFamily: 'sans-serif',
@@ -226,13 +298,7 @@ export class GameScene extends Phaser.Scene {
       .setVisible(false);
 
     this.bossBarFill = this.add
-      .rectangle(
-        BOSS_BAR_X - BOSS_BAR_W / 2,
-        BOSS_BAR_Y,
-        BOSS_BAR_W,
-        BOSS_BAR_H,
-        0xcc2222,
-      )
+      .rectangle(BOSS_BAR_X - BOSS_BAR_W / 2, BOSS_BAR_Y, BOSS_BAR_W, BOSS_BAR_H, 0xcc2222)
       .setOrigin(0, 0.5)
       .setDepth(depth)
       .setVisible(false);
@@ -252,27 +318,91 @@ export class GameScene extends Phaser.Scene {
   }
 
   private showBossBar(): void {
-    this.bossBarBg.setVisible(true);
-    this.bossBarFill.setVisible(true);
-    this.bossBarLabel.setVisible(true);
-    this.bossBarName.setVisible(true);
+    [this.bossBarBg, this.bossBarFill, this.bossBarLabel, this.bossBarName].forEach((o) =>
+      o.setVisible(true),
+    );
   }
 
   private hideBossBar(): void {
-    this.bossBarBg.setVisible(false);
-    this.bossBarFill.setVisible(false);
-    this.bossBarLabel.setVisible(false);
-    this.bossBarName.setVisible(false);
+    [this.bossBarBg, this.bossBarFill, this.bossBarLabel, this.bossBarName].forEach((o) =>
+      o.setVisible(false),
+    );
   }
 
   private updateBossBar(hpRatio: number, hp: number, maxHp: number): void {
     this.bossBarFill.width = BOSS_BAR_W * hpRatio;
-    const pct = Math.ceil(hpRatio * 100);
-    this.bossBarLabel.setText(`${hp} / ${maxHp}  (${pct}%)`);
-
-    // Color lerp: verde → amarillo → rojo según HP
+    this.bossBarLabel.setText(`${hp} / ${maxHp}  (${Math.ceil(hpRatio * 100)}%)`);
     const color = hpRatio > 0.5 ? 0xcc2222 : hpRatio > 0.25 ? 0xdd8800 : 0xff3030;
     this.bossBarFill.setFillStyle(color);
+  }
+
+  // ── Onboarding tooltips ───────────────────────────────────────────────────
+
+  private showTooltip(step: number): void {
+    if (step >= this.TOOLTIPS.length) {
+      SaveSystem.markOnboardingSeen();
+      return;
+    }
+    const tip = this.TOOLTIPS[step];
+
+    if (this.tooltipOverlay) this.tooltipOverlay.destroy();
+
+    const bg = this.add.rectangle(0, 0, GAME_WIDTH - 100, 180, 0x000000, 0.82).setOrigin(0, 0);
+    const border = this.add
+      .rectangle(0, 0, GAME_WIDTH - 100, 180, 0x000000, 0)
+      .setOrigin(0, 0)
+      .setStrokeStyle(4, 0xe8c170);
+    const label = this.add
+      .text((GAME_WIDTH - 100) / 2, 70, tip.text, {
+        fontFamily: 'sans-serif',
+        fontSize: '38px',
+        color: '#e8c170',
+        stroke: '#1a1a1a',
+        strokeThickness: 5,
+        align: 'center',
+        wordWrap: { width: GAME_WIDTH - 160 },
+      })
+      .setOrigin(0.5);
+    const tap = this.add
+      .text((GAME_WIDTH - 100) / 2, 148, 'Toca para continuar', {
+        fontFamily: 'sans-serif',
+        fontSize: '26px',
+        color: '#a8c5b8',
+      })
+      .setOrigin(0.5);
+
+    this.tooltipOverlay = this.add.container(50, GAME_HEIGHT / 2 - 90, [bg, border, label, tap]);
+    this.tooltipOverlay.setDepth(300).setAlpha(0);
+
+    this.tweens.add({ targets: this.tooltipOverlay, alpha: 1, duration: 300, ease: 'Cubic.Out' });
+
+    // Auto-dismiss first tooltip after 3s; others require tap
+    const dismiss = () => {
+      this.tooltipStep = step + 1;
+      this.tweens.add({
+        targets: this.tooltipOverlay,
+        alpha: 0,
+        duration: 250,
+        onComplete: () => {
+          if (this.tooltipOverlay) this.tooltipOverlay.destroy();
+          if (step === 0) SaveSystem.markOnboardingSeen(); // mark after first tip shown
+        },
+      });
+    };
+
+    if (step === 0) {
+      this.time.delayedCall(3000, dismiss);
+    } else {
+      this.input.once('pointerdown', dismiss);
+    }
+  }
+
+  private updateOnboarding(): void {
+    if (this.tooltipStep >= this.TOOLTIPS.length) return;
+    const tip = this.TOOLTIPS[this.tooltipStep];
+    if (tip.triggerM > 0 && this.distance >= tip.triggerM) {
+      this.showTooltip(this.tooltipStep);
+    }
   }
 
   // ── Initial enemy population ──────────────────────────────────────────────
@@ -298,6 +428,31 @@ export class GameScene extends Phaser.Scene {
     const troops = this.formation.list();
     if (troops.length === 0) return;
     this.formation.remove(troops[troops.length - 1]);
+  }
+
+  // ── Enemy damage to player ────────────────────────────────────────────────
+
+  private checkEnemyReachesPlayer(): void {
+    for (const e of this.enemies.alive()) {
+      if (e === this.enemies.boss) continue;
+      if (e.y >= DAMAGE_THRESHOLD_Y) {
+        this.playerHp = Math.max(0, this.playerHp - e.damage);
+        e.kill();
+        this.cameras.main.shake(100, 0.01);
+        // Flash player red
+        this.tweens.add({
+          targets: this.player,
+          tint: 0xff4444,
+          duration: 80,
+          yoyo: true,
+          onComplete: () => this.player.clearTint(),
+        });
+        if (this.playerHp <= 0) {
+          this.triggerGameOver();
+          return;
+        }
+      }
+    }
   }
 
   // ── Gate logic ────────────────────────────────────────────────────────────
@@ -355,18 +510,14 @@ export class GameScene extends Phaser.Scene {
   private applyUpgrade(gate: Gate): void {
     const troops = this.formation.list();
     const half = Math.max(1, Math.floor(troops.length / 2));
-    for (let i = 0; i < half; i++) {
-      this.removeTroop();
-    }
+    for (let i = 0; i < half; i++) this.removeTroop();
     for (let i = 0; i < half; i++) {
       const slot = this.formation.count();
       const { dx, dy } = FormationManager.slotOffset(slot);
-      let t;
-      if (gate.upgradeClass === 'Ngäbe') {
-        t = new GuerreroNgabe(this, this.player.x + dx, this.player.y + dy);
-      } else {
-        t = new ArcherGuna(this, this.player.x + dx, this.player.y + dy);
-      }
+      const t =
+        gate.upgradeClass === 'Ngäbe'
+          ? new GuerreroNgabe(this, this.player.x + dx, this.player.y + dy)
+          : new ArcherGuna(this, this.player.x + dx, this.player.y + dy);
       this.formation.add(t);
     }
     this.showGateEffect(gate.x, gate.y, `⚔ ${gate.upgradeClass}`, true);
@@ -387,7 +538,6 @@ export class GameScene extends Phaser.Scene {
       })
       .setOrigin(0.5)
       .setDepth(50);
-
     this.tweens.add({
       targets: t,
       y: y - 200,
@@ -401,9 +551,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private tweenFormationRipple(positive: boolean): void {
-    const troops = this.formation.list();
     const scaleTarget = positive ? 1.35 : 0.72;
-    for (const t of troops) {
+    for (const t of this.formation.list()) {
       this.tweens.add({
         targets: t,
         scaleX: scaleTarget,
@@ -421,8 +570,7 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOverActive || this.victoryActive) return;
     this.gameOverActive = true;
 
-    SaveSystem.save(this.distance, this.kills);
-
+    const { stats } = SaveSystem.save(this.distance, this.kills, this.gold);
     this.cameras.main.shake(300, 0.014);
 
     const overlay = this.add
@@ -431,7 +579,7 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: overlay, alpha: 0.72, duration: 600, ease: 'Cubic.Out' });
 
     const title = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 180, 'DERROTA', {
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 200, 'DERROTA', {
         fontFamily: 'sans-serif',
         fontSize: '96px',
         fontStyle: 'bold',
@@ -444,12 +592,15 @@ export class GameScene extends Phaser.Scene {
       .setDepth(201)
       .setAlpha(0);
 
-    const stats = SaveSystem.load();
     const subtitle = this.add
       .text(
         GAME_WIDTH / 2,
         GAME_HEIGHT / 2 - 60,
-        `${Math.floor(this.distance)} m recorridos\n☠ ${this.kills} bajas\nMejor marca: ${stats.bestDistance} m`,
+        [
+          `${Math.floor(this.distance)} m recorridos`,
+          `☠ ${this.kills} bajas   💰 ${this.gold} oro`,
+          `Mejor marca: ${stats.bestDistance} m`,
+        ].join('\n'),
         {
           fontFamily: 'sans-serif',
           fontSize: '44px',
@@ -465,41 +616,23 @@ export class GameScene extends Phaser.Scene {
       .setAlpha(0);
 
     const btnBg = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 180, 420, 110, 0xe8c170)
-      .setDepth(201)
-      .setAlpha(0)
-      .setInteractive({ useHandCursor: true });
-
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 200, 420, 110, 0xe8c170)
+      .setDepth(201).setAlpha(0).setInteractive({ useHandCursor: true });
     const btnText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 180, 'REINTENTAR', {
-        fontFamily: 'sans-serif',
-        fontSize: '52px',
-        fontStyle: 'bold',
-        color: '#1a1a1a',
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 200, 'REINTENTAR', {
+        fontFamily: 'sans-serif', fontSize: '52px', fontStyle: 'bold', color: '#1a1a1a',
       })
-      .setOrigin(0.5)
-      .setDepth(202)
-      .setAlpha(0);
-
+      .setOrigin(0.5).setDepth(202).setAlpha(0);
     const menuBtn = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 320, 'Menú principal', {
-        fontFamily: 'sans-serif',
-        fontSize: '40px',
-        color: '#a8c5b8',
-        stroke: '#1a1a1a',
-        strokeThickness: 4,
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 340, 'Menú principal', {
+        fontFamily: 'sans-serif', fontSize: '40px', color: '#a8c5b8',
+        stroke: '#1a1a1a', strokeThickness: 4,
       })
-      .setOrigin(0.5)
-      .setDepth(201)
-      .setAlpha(0)
-      .setInteractive({ useHandCursor: true });
+      .setOrigin(0.5).setDepth(201).setAlpha(0).setInteractive({ useHandCursor: true });
 
     this.tweens.add({
       targets: [title, subtitle, btnBg, btnText, menuBtn],
-      alpha: 1,
-      delay: 400,
-      duration: 500,
-      ease: 'Cubic.Out',
+      alpha: 1, delay: 400, duration: 500, ease: 'Cubic.Out',
     });
 
     btnBg.on('pointerup', () => this.scene.restart());
@@ -513,7 +646,7 @@ export class GameScene extends Phaser.Scene {
     this.victoryActive = true;
 
     this.hideBossBar();
-    const { stats, newBest } = SaveSystem.save(this.distance, this.kills);
+    const { stats, newBest } = SaveSystem.save(this.distance, this.kills, this.gold);
 
     this.cameras.main.flash(300, 255, 220, 120);
     this.cameras.main.shake(200, 0.008);
@@ -524,104 +657,57 @@ export class GameScene extends Phaser.Scene {
     this.tweens.add({ targets: overlay, alpha: 0.85, duration: 700, ease: 'Cubic.Out' });
 
     const title = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 420, '¡VICTORIA!', {
-        fontFamily: 'sans-serif',
-        fontSize: '108px',
-        fontStyle: 'bold',
-        color: '#e8c170',
-        stroke: '#1a1a1a',
-        strokeThickness: 12,
-        align: 'center',
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 440, '¡VICTORIA!', {
+        fontFamily: 'sans-serif', fontSize: '108px', fontStyle: 'bold',
+        color: '#e8c170', stroke: '#1a1a1a', strokeThickness: 12, align: 'center',
       })
-      .setOrigin(0.5)
-      .setDepth(201)
-      .setAlpha(0);
+      .setOrigin(0.5).setDepth(201).setAlpha(0);
 
-    // Cofre placeholder (rectángulo dorado decorativo)
-    const chestBg = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 200, 180, 140, 0x6b4000)
-      .setDepth(201)
-      .setAlpha(0);
-    const chestLid = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 260, 190, 60, 0x8b5500)
-      .setDepth(201)
-      .setAlpha(0);
-    const chestLatch = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 200, 40, 40, 0xe8c170)
-      .setDepth(202)
-      .setAlpha(0);
+    // Cofre placeholder
+    const chestBg = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 220, 180, 140, 0x6b4000).setDepth(201).setAlpha(0);
+    const chestLid = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 280, 190, 60, 0x8b5500).setDepth(201).setAlpha(0);
+    const chestLatch = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 220, 40, 40, 0xe8c170).setDepth(202).setAlpha(0);
 
-    const newBestText = newBest
-      ? `\n🏆 ¡Nueva marca! ${stats.bestDistance} m`
-      : `\nMejor: ${stats.bestDistance} m`;
-
+    const newBestLine = newBest ? `\n🏆 ¡Nueva marca! ${stats.bestDistance} m` : `\nMejor: ${stats.bestDistance} m`;
     const statsText = this.add
       .text(
-        GAME_WIDTH / 2,
-        GAME_HEIGHT / 2 + 20,
-        `${Math.floor(this.distance)} m recorridos\n☠ ${this.kills} bajas${newBestText}\nRuns totales: ${stats.totalRuns}`,
+        GAME_WIDTH / 2, GAME_HEIGHT / 2 + 0,
+        [
+          `${Math.floor(this.distance)} m recorridos`,
+          `☠ ${this.kills} bajas   💰 ${this.gold} oro`,
+          `Mejor oro: ${stats.bestGold}${newBestLine}`,
+          `Runs totales: ${stats.totalRuns}`,
+        ].join('\n'),
         {
-          fontFamily: 'sans-serif',
-          fontSize: '44px',
-          color: '#e8c170',
-          stroke: '#1a1a1a',
-          strokeThickness: 6,
-          align: 'center',
-          lineSpacing: 10,
+          fontFamily: 'sans-serif', fontSize: '40px', color: '#e8c170',
+          stroke: '#1a1a1a', strokeThickness: 6, align: 'center', lineSpacing: 10,
         },
       )
-      .setOrigin(0.5)
-      .setDepth(201)
-      .setAlpha(0);
+      .setOrigin(0.5).setDepth(201).setAlpha(0);
 
     const btnBg = this.add
-      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 320, 440, 110, 0xe8c170)
-      .setDepth(201)
-      .setAlpha(0)
-      .setInteractive({ useHandCursor: true });
-
+      .rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 340, 440, 110, 0xe8c170)
+      .setDepth(201).setAlpha(0).setInteractive({ useHandCursor: true });
     const btnText = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 320, 'JUGAR DE NUEVO', {
-        fontFamily: 'sans-serif',
-        fontSize: '48px',
-        fontStyle: 'bold',
-        color: '#1a1a1a',
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 340, 'JUGAR DE NUEVO', {
+        fontFamily: 'sans-serif', fontSize: '48px', fontStyle: 'bold', color: '#1a1a1a',
       })
-      .setOrigin(0.5)
-      .setDepth(202)
-      .setAlpha(0);
-
+      .setOrigin(0.5).setDepth(202).setAlpha(0);
     const menuBtn = this.add
-      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 460, 'Menú principal', {
-        fontFamily: 'sans-serif',
-        fontSize: '40px',
-        color: '#a8c5b8',
-        stroke: '#1a1a1a',
-        strokeThickness: 4,
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 480, 'Menú principal', {
+        fontFamily: 'sans-serif', fontSize: '40px', color: '#a8c5b8',
+        stroke: '#1a1a1a', strokeThickness: 4,
       })
-      .setOrigin(0.5)
-      .setDepth(201)
-      .setAlpha(0)
-      .setInteractive({ useHandCursor: true });
+      .setOrigin(0.5).setDepth(201).setAlpha(0).setInteractive({ useHandCursor: true });
 
     this.tweens.add({
       targets: [title, chestBg, chestLid, chestLatch, statsText, btnBg, btnText, menuBtn],
-      alpha: 1,
-      delay: 500,
-      duration: 600,
-      ease: 'Cubic.Out',
+      alpha: 1, delay: 500, duration: 600, ease: 'Cubic.Out',
     });
-
-    // Cofre pulso continuo
     this.tweens.add({
       targets: [chestBg, chestLid, chestLatch],
-      scaleX: 1.06,
-      scaleY: 1.06,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.InOut',
-      delay: 1100,
+      scaleX: 1.06, scaleY: 1.06, duration: 800, yoyo: true, repeat: -1,
+      ease: 'Sine.InOut', delay: 1100,
     });
 
     btnBg.on('pointerup', () => this.scene.restart());
@@ -649,6 +735,7 @@ export class GameScene extends Phaser.Scene {
 
     if (killed) {
       this.kills++;
+      this.gold += enemy.goldValue;
       this.flashHit(enemy.x, enemy.y);
       this.cameras.main.shake(60, 0.004);
     } else if (isCrit) {
@@ -672,12 +759,31 @@ export class GameScene extends Phaser.Scene {
   private flashHit(x: number, y: number): void {
     const burst = this.add.circle(x, y, 18, 0xe8c170, 0.9).setDepth(15);
     this.tweens.add({
-      targets: burst,
-      alpha: 0,
-      scale: 2.5,
-      duration: 220,
+      targets: burst, alpha: 0, scale: 2.5, duration: 220,
       onComplete: () => burst.destroy(),
     });
+  }
+
+  // ── Boss state ────────────────────────────────────────────────────────────
+
+  private checkBossState(): void {
+    const boss = this.enemies.boss;
+    if (!boss) return;
+
+    if (boss.alive) {
+      if (!this.bossBarShown) {
+        this.bossBarShown = true;
+        this.showBossBar();
+        for (const e of this.enemies.alive()) {
+          if (e !== boss) e.kill();
+        }
+      }
+      this.updateBossBar(boss.hp / boss.maxHp, boss.hp, boss.maxHp);
+    } else {
+      this.enemies.boss = null;
+      this.bossBarShown = false;
+      this.triggerVictory();
+    }
   }
 
   // ── Update ────────────────────────────────────────────────────────────────
@@ -723,39 +829,17 @@ export class GameScene extends Phaser.Scene {
     this.projectiles.cull(-100, GAME_HEIGHT + 100, -100, GAME_WIDTH + 100);
 
     this.checkGateOverlap();
+    this.checkEnemyReachesPlayer();
     this.checkBossState();
+    this.updateOnboarding();
+    this.updatePlayerHpBar();
 
     const mult = this.formation.powerMultiplier();
     const multStr = mult >= 1.1 ? `  ⚡×${mult.toFixed(2)}` : '';
     this.hud.setText(
       `${Math.floor(this.distance)} m   👥${this.formation.count()}${multStr}   ☠ ${this.kills}`,
     );
+    this.hudStats.setText(`❤ ${this.playerHp}/${PLAYER_MAX_HP}   💰 ${this.gold} oro`);
     this.fpsText.setText(`FPS: ${Math.round(this.game.loop.actualFps)}`);
-  }
-
-  // ── Boss state management ─────────────────────────────────────────────────
-
-  private bossBarShown = false;
-
-  private checkBossState(): void {
-    const boss = this.enemies.boss;
-    if (!boss) return;
-
-    if (boss.alive) {
-      if (!this.bossBarShown) {
-        this.bossBarShown = true;
-        this.showBossBar();
-        // Kill all normal enemies as the boss arrives
-        for (const e of this.enemies.alive()) {
-          if (e !== boss) e.kill();
-        }
-      }
-      this.updateBossBar(boss.hp / boss.maxHp, boss.hp, boss.maxHp);
-    } else {
-      // Boss just died
-      this.enemies.boss = null;
-      this.bossBarShown = false;
-      this.triggerVictory();
-    }
   }
 }

@@ -7,6 +7,8 @@ export const BOSS_MENDEZ_CFG: EnemyConfig = {
   hp: 1500,
   speed: 80,
   isBoss: true,
+  goldValue: 50,
+  damage: 0, // el boss no llega al jugador, sus patrones son horizontales
 };
 
 const SETTLE_Y = 480;
