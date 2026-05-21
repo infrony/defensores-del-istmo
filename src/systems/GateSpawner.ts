@@ -66,15 +66,18 @@ export class GateSpawner {
     );
   }
 
-  /** Par especial: upgrade (Ngäbe) vs penalización moderada. */
+  /** Par especial: upgrade (clase aleatoria) vs penalización moderada. */
   private spawnUpgradePair(): void {
     const upgradeOnLeft = Math.random() < 0.5;
     const upgradeX = upgradeOnLeft ? LEFT_CX : RIGHT_CX;
     const penaltyX = upgradeOnLeft ? RIGHT_CX : LEFT_CX;
     const y = -GATE_H / 2 - 20;
 
+    const classes = ['Ngäbe', 'Emberá', 'Chamán', 'Invocador', 'Jaguar'];
+    const upgradeClass = classes[Math.floor(Math.random() * classes.length)];
+
     this.gates.push(
-      new Gate(this.scene, upgradeX, y, 'upgrade', 0, GATE_SPEED, 'Ngäbe'),
+      new Gate(this.scene, upgradeX, y, 'upgrade', 0, GATE_SPEED, upgradeClass),
       new Gate(this.scene, penaltyX, y, '-', 3, GATE_SPEED),
     );
   }

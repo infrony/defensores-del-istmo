@@ -6,4 +6,6 @@ export const CONQUISTADOR_CFG: EnemyConfig = {
   speed: 140,
   goldValue: 3,
   damage: 30,
+  displayW: 80,
+  displayH: 80,
 };

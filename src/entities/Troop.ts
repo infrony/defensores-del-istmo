@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import type { Enemy } from './Enemy';
 import type { ProjectilePool } from '../systems/ProjectilePool';
+import { AudioManager } from '../systems/AudioManager';
 
 export interface TroopConfig {
   texture: string;
@@ -9,6 +10,8 @@ export interface TroopConfig {
   range: number;
   fireRateMs: number;
   projectileSpeed: number;
+  displayW?: number;
+  displayH?: number;
 }
 
 export class Troop extends Phaser.GameObjects.Image {
@@ -44,6 +47,7 @@ export class Troop extends Phaser.GameObjects.Image {
     this.fireRateMs = cfg.fireRateMs;
     this.projectileSpeed = cfg.projectileSpeed;
     this.setDepth(11);
+    if (cfg.displayW && cfg.displayH) this.setDisplaySize(cfg.displayW, cfg.displayH);
   }
 
   setTarget(enemy: Enemy | null): void {
@@ -77,6 +81,7 @@ export class Troop extends Phaser.GameObjects.Image {
     const vy = (dy / dist) * this.projectileSpeed;
     const finalDamage = Math.round(this.damage * this.damageMultiplier);
     pool.fire(this.x, this.y - 20, vx, vy, finalDamage);
+    AudioManager.instance?.sfx('sfx-shoot', 0.4, 80);
     this.cooldown = this.fireRateMs;
   }
 }

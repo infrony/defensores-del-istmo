@@ -7,8 +7,11 @@ export const BOSS_MENDEZ_CFG: EnemyConfig = {
   hp: 1500,
   speed: 80,
   isBoss: true,
+  bossType: 'mendez',
   goldValue: 50,
   damage: 0, // el boss no llega al jugador, sus patrones son horizontales
+  displayW: 266,
+  displayH: 266,
 };
 
 const SETTLE_Y = 480;
@@ -25,7 +28,7 @@ export class BossMendez extends Enemy {
 
   constructor(scene: Phaser.Scene, x: number, y: number) {
     super(scene, x, y, BOSS_MENDEZ_CFG);
-    this.setScale(1.9);
+    // displaySize ya aplicado por Enemy base via cfg.displayW/displayH
     this.setDepth(12);
   }
 

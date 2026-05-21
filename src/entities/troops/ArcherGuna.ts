@@ -8,6 +8,8 @@ export const ARCHER_GUNA_CFG = {
   range: 1400,
   fireRateMs: 420,
   projectileSpeed: 900,
+  displayW: 64,
+  displayH: 64,
 } as const;
 
 export class ArcherGuna extends Troop {

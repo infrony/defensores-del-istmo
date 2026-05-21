@@ -6,4 +6,6 @@ export const SAILOR_CFG: EnemyConfig = {
   speed: 220,
   goldValue: 1,
   damage: 15,
+  displayW: 72,
+  displayH: 72,
 };

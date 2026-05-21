@@ -2,6 +2,11 @@ import { EnemySpawner } from './EnemySpawner';
 import { SAILOR_CFG } from '../entities/enemies/Sailor';
 import { CONQUISTADOR_CFG } from '../entities/enemies/Conquistador';
 import { BOSS_MENDEZ_CFG } from '../entities/enemies/BossMendez';
+import { BOSS_BALBOA_CFG } from '../entities/enemies/BossBalboa';
+import { BOSS_MORGAN_CFG } from '../entities/enemies/BossMorgan';
+import { BALLESTERO_CFG } from '../entities/enemies/Ballestero';
+import { PERRO_CFG } from '../entities/enemies/PerroDeCaza';
+import { PIRATA_CFG } from '../entities/enemies/Pirata';
 import type { EnemyConfig } from '../entities/Enemy';
 import levelsData from '../data/levels.json';
 
@@ -23,7 +28,12 @@ interface LevelDef {
 const ENEMY_MAP: Record<string, EnemyConfig> = {
   sailor: SAILOR_CFG,
   conquistador: CONQUISTADOR_CFG,
+  ballestero: BALLESTERO_CFG,
+  'perro-caza': PERRO_CFG,
+  pirata: PIRATA_CFG,
   'boss-mendez': BOSS_MENDEZ_CFG,
+  'boss-balboa': BOSS_BALBOA_CFG,
+  'boss-morgan': BOSS_MORGAN_CFG,
 };
 
 /** Drives EnemySpawner using a level JSON definition instead of procedural rules. */

@@ -14,8 +14,10 @@ export class Obstacle extends Phaser.Physics.Arcade.Image {
     scene.add.existing(this);
     scene.physics.add.existing(this);
     this.setDepth(8);
+    this.setDisplaySize(80, 96);
     this.setImmovable(true);
     this.setVelocityY(OBSTACLE_SPEED);
+    (this.body as Phaser.Physics.Arcade.Body).setSize(80, 96);
 
     this.hpLabel = scene.add
       .text(x, y + 50, `${OBSTACLE_HP}`, {

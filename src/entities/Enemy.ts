@@ -5,8 +5,11 @@ export interface EnemyConfig {
   hp: number;
   speed: number; // px/s descendentes
   isBoss?: boolean;
+  bossType?: 'mendez' | 'balboa' | 'morgan';
   goldValue?: number; // oro ganado al matar
   damage?: number;    // daño al jugador si llega a PLAYER_Y
+  displayW?: number;  // tamaño visual fijo independiente de la resolución nativa del PNG
+  displayH?: number;
 }
 
 export class Enemy extends Phaser.Physics.Arcade.Image {
@@ -28,6 +31,10 @@ export class Enemy extends Phaser.Physics.Arcade.Image {
     this.damage = cfg.damage ?? 15;
     this.setDepth(8);
     this.setVelocity(0, cfg.speed);
+    if (cfg.displayW && cfg.displayH) {
+      this.setDisplaySize(cfg.displayW, cfg.displayH);
+      (this.body as Phaser.Physics.Arcade.Body).setSize(cfg.displayW, cfg.displayH);
+    }
   }
 
   reset(x: number, y: number, cfg: EnemyConfig): void {
@@ -40,9 +47,15 @@ export class Enemy extends Phaser.Physics.Arcade.Image {
     this.damage = cfg.damage ?? 15;
     this.alive = true;
     this.setActive(true).setVisible(true);
+    if (cfg.displayW && cfg.displayH) {
+      this.setDisplaySize(cfg.displayW, cfg.displayH);
+    }
     if (this.body) {
       this.body.enable = true;
       this.setVelocity(0, cfg.speed);
+      if (cfg.displayW && cfg.displayH) {
+        (this.body as Phaser.Physics.Arcade.Body).setSize(cfg.displayW, cfg.displayH);
+      }
     }
   }
 

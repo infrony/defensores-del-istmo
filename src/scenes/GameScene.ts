@@ -9,9 +9,19 @@ import { DamageText } from '../systems/DamageText';
 import { ObstacleManager } from '../systems/ObstacleManager';
 import { SpawnManager } from '../systems/SpawnManager';
 import { SaveSystem } from '../systems/SaveSystem';
+import { AudioManager } from '../systems/AudioManager';
+import { ProgressionSystem } from '../systems/ProgressionSystem';
+import { VFXSystem } from '../systems/VFXSystem';
+import { MissionSystem } from '../systems/MissionSystem';
+import { AnalyticsSystem } from '../systems/AnalyticsSystem';
+import type { Troop } from '../entities/Troop';
 import type { Obstacle } from '../entities/Obstacle';
 import { ArcherGuna } from '../entities/troops/ArcherGuna';
 import { GuerreroNgabe } from '../entities/troops/GuerreroNgabe';
+import { GuerreroEmbera } from '../entities/troops/GuerreroEmbera';
+import { ChamanGuna } from '../entities/troops/ChamanGuna';
+import { InvocadorEspiritu } from '../entities/troops/InvocadorEspiritu';
+import { JaguarWarrior } from '../entities/troops/JaguarWarrior';
 import type { Gate } from '../entities/Gate';
 import type { Enemy } from '../entities/Enemy';
 import type { Projectile } from '../entities/Projectile';
@@ -19,7 +29,6 @@ import type { Projectile } from '../entities/Projectile';
 const SCROLL_SPEED = 480;
 const PLAYER_LERP = 0.22;
 const PLAYER_Y = GAME_HEIGHT - 380;
-const INITIAL_TROOPS = 6;
 const KEY_SPEED = 900;
 
 const PLAYER_MAX_HP = 200;
@@ -65,6 +74,11 @@ export class GameScene extends Phaser.Scene {
   private damageText!: DamageText;
 
   private keys!: { left: Phaser.Input.Keyboard.Key; right: Phaser.Input.Keyboard.Key };
+  private audioMgr!: AudioManager;
+  private vfx!: VFXSystem;
+  private damageBonus = 1.0;
+  private fireRateBonus = 1.0;
+  private currentLevelId = 'veraguas-1502-1';
 
   // HUD elements
   private hud!: Phaser.GameObjects.Text;
@@ -80,6 +94,12 @@ export class GameScene extends Phaser.Scene {
   private bossBarLabel!: Phaser.GameObjects.Text;
   private bossBarName!: Phaser.GameObjects.Text;
   private bossBarShown = false;
+  private bossPhase = 0; // 0=fresh, 1=below50%, 2=below25%
+
+  // Kill combo
+  private comboCount = 0;
+  private lastKillTime = 0;
+  private readonly COMBO_WINDOW_MS = 1500;
 
   // Onboarding
   private tooltipOverlay!: Phaser.GameObjects.Container;
@@ -92,6 +112,10 @@ export class GameScene extends Phaser.Scene {
 
   constructor() {
     super({ key: 'GameScene' });
+  }
+
+  init(data: { levelId?: string }): void {
+    this.currentLevelId = data?.levelId ?? 'veraguas-1502-1';
   }
 
   create(): void {
@@ -116,7 +140,7 @@ export class GameScene extends Phaser.Scene {
       .tileSprite(LANE.leftBound, 0, laneWidth, GAME_HEIGHT, 'lane-tile')
       .setOrigin(0, 0);
 
-    this.player = this.add.image(LANE.centerX, PLAYER_Y, 'player').setDepth(12);
+    this.player = this.add.image(LANE.centerX, PLAYER_Y, 'player').setDepth(12).setDisplaySize(96, 96);
     this.targetX = LANE.centerX;
 
     this.formation = new FormationManager();
@@ -125,12 +149,25 @@ export class GameScene extends Phaser.Scene {
     this.combat = new CombatSystem();
     this.gates = new GateSpawner(this);
     this.obstacles = new ObstacleManager(this);
-    this.spawnMgr = new SpawnManager('veraguas-1502-1', this.enemies);
+    this.spawnMgr = new SpawnManager(this.currentLevelId, this.enemies);
     this.damageText = new DamageText(this);
     this.kills = 0;
     this.distance = 0;
+    this.comboCount = 0;
+    this.lastKillTime = 0;
+    this.bossPhase = 0;
 
-    for (let i = 0; i < INITIAL_TROOPS; i++) {
+    this.audioMgr = new AudioManager(this);
+    this.vfx = new VFXSystem(this);
+    this.audioMgr.playMusic(this.chapterMusicKey());
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.audioMgr.destroy());
+
+    this.damageBonus = ProgressionSystem.getDamageMultiplier();
+    this.fireRateBonus = ProgressionSystem.getFireRateMultiplier();
+    this.playerHp = Math.round(PLAYER_MAX_HP * ProgressionSystem.getHpMultiplier());
+
+    const initialTroops = ProgressionSystem.getInitialTroops();
+    for (let i = 0; i < initialTroops; i++) {
       this.spawnTroop();
     }
     this.spawnInitialEnemies();
@@ -161,7 +198,13 @@ export class GameScene extends Phaser.Scene {
     } else {
       this.tooltipStep = this.TOOLTIPS.length; // skip all
     }
+
+    this.showChapterIntro();
+    AnalyticsSystem.track({ event: 'run_start', levelId: this.currentLevelId, troops: ProgressionSystem.getInitialTroops() });
+    this._runStartTime = Date.now();
   }
+
+  private _runStartTime = 0;
 
   // ── Input ──────────────────────────────────────────────────────────────────
 
@@ -188,8 +231,8 @@ export class GameScene extends Phaser.Scene {
       if (!this.dragging) return;
       this.targetX = Phaser.Math.Clamp(
         p.x + this.dragOffset,
-        LANE.leftBound + this.player.width / 2,
-        LANE.rightBound - this.player.width / 2,
+        LANE.leftBound + this.player.displayWidth / 2,
+        LANE.rightBound - this.player.displayWidth / 2,
       );
     });
     const stop = () => { this.dragging = false; };
@@ -417,10 +460,14 @@ export class GameScene extends Phaser.Scene {
 
   // ── Troop helpers ─────────────────────────────────────────────────────────
 
-  private spawnTroop(): void {
+  private spawnTroop(
+    TroopClass: new (scene: Phaser.Scene, x: number, y: number) => Troop = ArcherGuna,
+  ): void {
     const slot = this.formation.count();
     const { dx, dy } = FormationManager.slotOffset(slot);
-    const t = new ArcherGuna(this, this.player.x + dx, this.player.y + dy);
+    const t = new TroopClass(this, this.player.x + dx, this.player.y + dy);
+    t.damage = Math.round(t.damage * this.damageBonus);
+    t.fireRateMs = Math.round(t.fireRateMs * this.fireRateBonus);
     this.formation.add(t);
   }
 
@@ -438,6 +485,7 @@ export class GameScene extends Phaser.Scene {
       if (e.y >= DAMAGE_THRESHOLD_Y) {
         this.playerHp = Math.max(0, this.playerHp - e.damage);
         e.kill();
+        this.audioMgr.sfx('sfx-player-hit', 0.8, 300);
         this.cameras.main.shake(100, 0.01);
         // Flash player red
         this.tweens.add({
@@ -471,6 +519,8 @@ export class GameScene extends Phaser.Scene {
     gate.collect();
 
     if (gate.op === 'upgrade') {
+      this.audioMgr.sfx('sfx-gate-upgrade', 0.8);
+      this.vfx.gateUpgradeFX(gate.x, gate.y);
       this.applyUpgrade(gate);
       return;
     }
@@ -499,6 +549,15 @@ export class GameScene extends Phaser.Scene {
       for (let i = 0; i < -delta; i++) this.removeTroop();
     }
 
+    if (delta >= 0) {
+      this.audioMgr.sfx('sfx-gate-positive', 0.75);
+      this.vfx.gatePositiveFX(gate.x, gate.y);
+      MissionSystem.report('gates', 1);
+    } else {
+      this.audioMgr.sfx('sfx-gate-negative', 0.75);
+      this.vfx.gateNegativeFX(gate.x, gate.y);
+    }
+    AnalyticsSystem.track({ event: 'gate_choice', op: gate.op, value: gate.value, positive: delta >= 0, troopsBefore: before, troopsAfter: this.formation.count() });
     this.showGateEffect(gate.x, gate.y, `${gate.op}${gate.value}`, delta >= 0);
     this.tweenFormationRipple(delta >= 0);
 
@@ -508,20 +567,23 @@ export class GameScene extends Phaser.Scene {
   }
 
   private applyUpgrade(gate: Gate): void {
-    const troops = this.formation.list();
-    const half = Math.max(1, Math.floor(troops.length / 2));
+    const half = Math.max(1, Math.floor(this.formation.count() / 2));
     for (let i = 0; i < half; i++) this.removeTroop();
-    for (let i = 0; i < half; i++) {
-      const slot = this.formation.count();
-      const { dx, dy } = FormationManager.slotOffset(slot);
-      const t =
-        gate.upgradeClass === 'Ngäbe'
-          ? new GuerreroNgabe(this, this.player.x + dx, this.player.y + dy)
-          : new ArcherGuna(this, this.player.x + dx, this.player.y + dy);
-      this.formation.add(t);
-    }
+    const TroopClass = this.troopClassForUpgrade(gate.upgradeClass ?? 'Guna');
+    for (let i = 0; i < half; i++) this.spawnTroop(TroopClass);
     this.showGateEffect(gate.x, gate.y, `⚔ ${gate.upgradeClass}`, true);
     this.tweenFormationRipple(true);
+  }
+
+  private troopClassForUpgrade(cls: string): new (scene: Phaser.Scene, x: number, y: number) => Troop {
+    switch (cls) {
+      case 'Ngäbe':    return GuerreroNgabe;
+      case 'Emberá':   return GuerreroEmbera;
+      case 'Chamán':   return ChamanGuna;
+      case 'Invocador': return InvocadorEspiritu;
+      case 'Jaguar':   return JaguarWarrior;
+      default:         return ArcherGuna;
+    }
   }
 
   private showGateEffect(x: number, y: number, text: string, positive: boolean): void {
@@ -570,6 +632,10 @@ export class GameScene extends Phaser.Scene {
     if (this.gameOverActive || this.victoryActive) return;
     this.gameOverActive = true;
 
+    AnalyticsSystem.track({ event: 'run_end', levelId: this.currentLevelId, result: 'defeat', kills: this.kills, distance: Math.floor(this.distance), gold: this.gold, durationMs: Date.now() - this._runStartTime });
+    this.audioMgr.stopMusic();
+    this.audioMgr.sfx('sfx-defeat', 0.9);
+    ProgressionSystem.addGold(this.gold);
     const { stats } = SaveSystem.save(this.distance, this.kills, this.gold);
     this.cameras.main.shake(300, 0.014);
 
@@ -635,10 +701,20 @@ export class GameScene extends Phaser.Scene {
       alpha: 1, delay: 400, duration: 500, ease: 'Cubic.Out',
     });
 
+    const campBtn = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 460, '🏕 Campamento', {
+        fontFamily: 'sans-serif', fontSize: '38px', color: '#e8c170',
+        stroke: '#1a1a1a', strokeThickness: 4,
+      })
+      .setOrigin(0.5).setDepth(201).setAlpha(0).setInteractive({ useHandCursor: true });
+
+    this.tweens.add({ targets: campBtn, alpha: 1, delay: 400, duration: 500 });
+
     btnBg.on('pointerup', () => this.scene.restart());
     btnBg.on('pointerover', () => btnBg.setFillStyle(0xffd080));
     btnBg.on('pointerout', () => btnBg.setFillStyle(0xe8c170));
     menuBtn.on('pointerup', () => this.scene.start('MainMenuScene'));
+    campBtn.on('pointerup', () => this.scene.start('UpgradeScene'));
   }
 
   private triggerVictory(): void {
@@ -646,6 +722,13 @@ export class GameScene extends Phaser.Scene {
     this.victoryActive = true;
 
     this.hideBossBar();
+    this.vfx.bossDeathExplosion(GAME_WIDTH / 2, GAME_HEIGHT * 0.25);
+    AnalyticsSystem.track({ event: 'run_end', levelId: this.currentLevelId, result: 'victory', kills: this.kills, distance: Math.floor(this.distance), gold: this.gold, durationMs: Date.now() - this._runStartTime });
+    AnalyticsSystem.track({ event: 'level_complete', levelId: this.currentLevelId, kills: this.kills, durationMs: Date.now() - this._runStartTime });
+    this.audioMgr.stopMusic();
+    this.audioMgr.sfx('sfx-victory', 0.9);
+    ProgressionSystem.addGold(this.gold);
+    SaveSystem.markChapterComplete(this.currentLevelId);
     const { stats, newBest } = SaveSystem.save(this.distance, this.kills, this.gold);
 
     this.cameras.main.flash(300, 255, 220, 120);
@@ -710,10 +793,20 @@ export class GameScene extends Phaser.Scene {
       ease: 'Sine.InOut', delay: 1100,
     });
 
+    const campBtn2 = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 600, '🏕 Campamento', {
+        fontFamily: 'sans-serif', fontSize: '38px', color: '#e8c170',
+        stroke: '#1a1a1a', strokeThickness: 4,
+      })
+      .setOrigin(0.5).setDepth(201).setAlpha(0).setInteractive({ useHandCursor: true });
+
+    this.tweens.add({ targets: campBtn2, alpha: 1, delay: 500, duration: 600 });
+
     btnBg.on('pointerup', () => this.scene.restart());
     btnBg.on('pointerover', () => btnBg.setFillStyle(0xffd080));
     btnBg.on('pointerout', () => btnBg.setFillStyle(0xe8c170));
     menuBtn.on('pointerup', () => this.scene.start('MainMenuScene'));
+    campBtn2.on('pointerup', () => this.scene.start('UpgradeScene'));
   }
 
   // ── Combat callbacks ──────────────────────────────────────────────────────
@@ -737,9 +830,17 @@ export class GameScene extends Phaser.Scene {
       this.kills++;
       this.gold += enemy.goldValue;
       this.flashHit(enemy.x, enemy.y);
+      this.vfx.goldBurst(enemy.x, enemy.y);
+      this.vfx.deathExplosion(enemy.x, enemy.y);
+      this.audioMgr.sfx('sfx-kill', 0.6, 80);
       this.cameras.main.shake(60, 0.004);
+      MissionSystem.report('kills', 1);
+      this.registerKill(enemy.x, enemy.y);
     } else if (isCrit) {
+      this.audioMgr.sfx('sfx-crit', 0.7, 60);
       this.cameras.main.shake(40, 0.002);
+    } else {
+      this.audioMgr.sfx('sfx-hit', 0.5, 60);
     }
   };
 
@@ -764,23 +865,181 @@ export class GameScene extends Phaser.Scene {
     });
   }
 
+  // ── Boss phase transitions ────────────────────────────────────────────────
+
+  private checkBossPhase(hpRatio: number): void {
+    if (this.bossPhase === 0 && hpRatio <= 0.5) {
+      this.bossPhase = 1;
+      this.cameras.main.shake(200, 0.018);
+      this.cameras.main.flash(300, 255, 80, 0);
+      this.showPhaseAlert('¡FASE 2!', '#ff8800');
+    } else if (this.bossPhase === 1 && hpRatio <= 0.25) {
+      this.bossPhase = 2;
+      this.cameras.main.shake(300, 0.028);
+      this.cameras.main.flash(400, 255, 0, 0);
+      this.showPhaseAlert('¡FASE FINAL!', '#ff3333');
+    }
+  }
+
+  private showPhaseAlert(text: string, color: string): void {
+    const t = this.add.text(GAME_WIDTH / 2, BOSS_BAR_Y + 60, text, {
+      fontFamily: 'sans-serif', fontSize: '72px', fontStyle: 'bold',
+      color, stroke: '#1a0000', strokeThickness: 10,
+    }).setOrigin(0.5).setDepth(110).setAlpha(0);
+    this.tweens.add({
+      targets: t, alpha: 1, scaleX: 1.3, scaleY: 1.3, duration: 200, ease: 'Back.Out',
+      onComplete: () => {
+        this.time.delayedCall(900, () => {
+          this.tweens.add({ targets: t, alpha: 0, duration: 300, onComplete: () => t.destroy() });
+        });
+      },
+    });
+  }
+
+  // ── Chapter helpers ───────────────────────────────────────────────────────
+
+  private chapterMusicKey(): string {
+    const map: Record<string, string> = {
+      'veraguas-1502-1':      'music-game-cap1',
+      'darien-1513-1':        'music-game-cap2',
+      'panama-viejo-1671-1':  'music-game-cap3',
+    };
+    const key = map[this.currentLevelId] ?? 'music-game-cap1';
+    // Fallback to cap1 if the specific track hasn't been loaded yet
+    return this.cache.audio.has(key) ? key : 'music-game-cap1';
+  }
+
+  private showChapterIntro(): void {
+    const titles: Record<string, [string, string]> = {
+      'veraguas-1502-1':      ['Capítulo I', 'Veraguas, 1502'],
+      'darien-1513-1':        ['Capítulo II', 'Cruce del Darién, 1513'],
+      'panama-viejo-1671-1':  ['Capítulo III', 'Panamá Viejo, 1671'],
+    };
+    const [chNum, chSub] = titles[this.currentLevelId] ?? ['Capítulo', ''];
+
+    const overlay = this.add.rectangle(GAME_WIDTH / 2, GAME_HEIGHT / 2, GAME_WIDTH, 300, 0x000000, 0.7)
+      .setDepth(260).setAlpha(0);
+    const line1 = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 - 70, chNum, {
+      fontFamily: 'serif', fontSize: '72px', color: '#e8c170',
+      stroke: '#1a0000', strokeThickness: 8, align: 'center',
+    }).setOrigin(0.5).setDepth(261).setAlpha(0);
+    const line2 = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 30, chSub, {
+      fontFamily: 'serif', fontSize: '48px', color: '#c8e8d0',
+      stroke: '#1a1a1a', strokeThickness: 5, align: 'center',
+    }).setOrigin(0.5).setDepth(261).setAlpha(0);
+
+    this.tweens.add({
+      targets: [overlay, line1, line2], alpha: 1, duration: 400, ease: 'Cubic.Out',
+      onComplete: () => {
+        this.time.delayedCall(1600, () => {
+          this.tweens.add({
+            targets: [overlay, line1, line2], alpha: 0, duration: 500,
+            onComplete: () => { overlay.destroy(); line1.destroy(); line2.destroy(); },
+          });
+        });
+      },
+    });
+  }
+
+  // ── Kill combo ────────────────────────────────────────────────────────────
+
+  private registerKill(x: number, y: number): void {
+    const now = this.time.now;
+    if (now - this.lastKillTime <= this.COMBO_WINDOW_MS) {
+      this.comboCount++;
+    } else {
+      this.comboCount = 1;
+    }
+    this.lastKillTime = now;
+
+    if (this.comboCount >= 3) {
+      const label = this.comboCount >= 10 ? '💀 MASACRE!' : this.comboCount >= 6 ? '⚡ COMBO ×' + this.comboCount : '🔥 ×' + this.comboCount;
+      const t = this.add.text(GAME_WIDTH / 2, GAME_HEIGHT * 0.38, label, {
+        fontFamily: 'sans-serif', fontSize: this.comboCount >= 6 ? '80px' : '64px',
+        fontStyle: 'bold', color: this.comboCount >= 10 ? '#ff4444' : this.comboCount >= 6 ? '#ff8800' : '#e8c170',
+        stroke: '#1a0000', strokeThickness: 8,
+      }).setOrigin(0.5).setDepth(50);
+      this.tweens.add({
+        targets: t, y: GAME_HEIGHT * 0.28, alpha: 0, duration: 900, ease: 'Cubic.Out',
+        onComplete: () => t.destroy(),
+      });
+    }
+  }
+
+  // ── Boss announcement ─────────────────────────────────────────────────────
+
+  private showBossAnnouncement(): void {
+    const line1 = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2, '⚔ JEFE FINAL ⚔', {
+        fontFamily: 'sans-serif',
+        fontSize: '80px',
+        fontStyle: 'bold',
+        color: '#ff4444',
+        stroke: '#1a0000',
+        strokeThickness: 10,
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(250)
+      .setAlpha(0);
+
+    const line2 = this.add
+      .text(GAME_WIDTH / 2, GAME_HEIGHT / 2 + 110, 'Diego Méndez', {
+        fontFamily: 'serif',
+        fontSize: '56px',
+        color: '#e8c170',
+        stroke: '#1a1a1a',
+        strokeThickness: 7,
+        align: 'center',
+      })
+      .setOrigin(0.5)
+      .setDepth(250)
+      .setAlpha(0);
+
+    this.tweens.add({
+      targets: [line1, line2],
+      alpha: 1,
+      duration: 350,
+      ease: 'Cubic.Out',
+      onComplete: () => {
+        this.time.delayedCall(1800, () => {
+          this.tweens.add({
+            targets: [line1, line2],
+            alpha: 0,
+            duration: 400,
+            onComplete: () => { line1.destroy(); line2.destroy(); },
+          });
+        });
+      },
+    });
+  }
+
   // ── Boss state ────────────────────────────────────────────────────────────
 
   private checkBossState(): void {
-    const boss = this.enemies.boss;
+    const boss = this.enemies.boss ?? this.enemies.boss2 ?? this.enemies.boss3;
     if (!boss) return;
 
     if (boss.alive) {
       if (!this.bossBarShown) {
         this.bossBarShown = true;
+        this.bossPhase = 0;
         this.showBossBar();
+        this.audioMgr.sfx('sfx-boss-appear', 0.9);
+        this.audioMgr.playMusic('music-boss');
+        AnalyticsSystem.track({ event: 'boss_appear', levelId: this.currentLevelId, distanceM: Math.floor(this.distance) });
         for (const e of this.enemies.alive()) {
           if (e !== boss) e.kill();
         }
+        this.showBossAnnouncement();
       }
-      this.updateBossBar(boss.hp / boss.maxHp, boss.hp, boss.maxHp);
+      const hpRatio = boss.hp / boss.maxHp;
+      this.updateBossBar(hpRatio, boss.hp, boss.maxHp);
+      this.checkBossPhase(hpRatio);
     } else {
-      this.enemies.boss = null;
+      if (this.enemies.boss === boss) this.enemies.boss = null;
+      else if (this.enemies.boss2 === boss) this.enemies.boss2 = null;
+      else if (this.enemies.boss3 === boss) this.enemies.boss3 = null;
       this.bossBarShown = false;
       this.triggerVictory();
     }
@@ -801,14 +1060,14 @@ export class GameScene extends Phaser.Scene {
     if (this.keys.left.isDown) {
       this.targetX = Phaser.Math.Clamp(
         this.targetX - KEY_SPEED * dtSec,
-        LANE.leftBound + this.player.width / 2,
-        LANE.rightBound - this.player.width / 2,
+        LANE.leftBound + this.player.displayWidth / 2,
+        LANE.rightBound - this.player.displayWidth / 2,
       );
     } else if (this.keys.right.isDown) {
       this.targetX = Phaser.Math.Clamp(
         this.targetX + KEY_SPEED * dtSec,
-        LANE.leftBound + this.player.width / 2,
-        LANE.rightBound - this.player.width / 2,
+        LANE.leftBound + this.player.displayWidth / 2,
+        LANE.rightBound - this.player.displayWidth / 2,
       );
     }
 
@@ -818,6 +1077,7 @@ export class GameScene extends Phaser.Scene {
 
     const distDelta = (SCROLL_SPEED / 100) * dtSec;
     this.distance += distDelta;
+    MissionSystem.report('distance', distDelta);
 
     const aliveEnemies = this.enemies.alive();
     this.combat.update(delta, this.formation, aliveEnemies);

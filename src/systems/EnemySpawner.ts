@@ -1,13 +1,20 @@
 import Phaser from 'phaser';
 import { Enemy, type EnemyConfig } from '../entities/Enemy';
 import { BossMendez } from '../entities/enemies/BossMendez';
+import { BossBalboa } from '../entities/enemies/BossBalboa';
+import { BossMorgan } from '../entities/enemies/BossMorgan';
 import { SAILOR_CFG } from '../entities/enemies/Sailor';
 import { CONQUISTADOR_CFG } from '../entities/enemies/Conquistador';
+import { BALLESTERO_CFG } from '../entities/enemies/Ballestero';
+import { PERRO_CFG } from '../entities/enemies/PerroDeCaza';
+import { PIRATA_CFG } from '../entities/enemies/Pirata';
 import { LANE } from '../config';
 
 export class EnemySpawner {
   public readonly group: Phaser.Physics.Arcade.Group;
   public boss: BossMendez | null = null;
+  public boss2: BossBalboa | null = null;
+  public boss3: BossMorgan | null = null;
 
   private accumulator = 0;
   private spawnEveryMs = 400;
@@ -37,6 +44,16 @@ export class EnemySpawner {
       this.cullNormal(bottomY, topY);
       return;
     }
+    if (this.boss2?.alive) {
+      this.boss2.bossUpdate(delta);
+      this.cullNormal(bottomY, topY);
+      return;
+    }
+    if (this.boss3?.alive) {
+      this.boss3.bossUpdate(delta);
+      this.cullNormal(bottomY, topY);
+      return;
+    }
 
     this.accumulator += delta;
     this.elapsedMs += delta;
@@ -57,7 +74,9 @@ export class EnemySpawner {
   /** Llamado desde SpawnManager para inyectar un enemigo con config explícita. */
   spawnWithCfg(cfg: EnemyConfig): void {
     if (cfg.isBoss) {
-      this.spawnBoss();
+      if (cfg.bossType === 'balboa') { this.spawnBalboa(); return; }
+      if (cfg.bossType === 'morgan') { this.spawnMorgan(); return; }
+      this.spawnBoss(); // default: mendez
       return;
     }
     this.spawnOne(cfg);
@@ -72,11 +91,29 @@ export class EnemySpawner {
     if (this.boss?.alive) return;
     const x = LANE.centerX;
     this.boss = new BossMendez(this.scene, x, -160);
+    this.boss.setVelocityY(600); // fast entrance: ~1s to reach SETTLE_Y
     this.group.add(this.boss);
   }
 
+  private spawnBalboa(): void {
+    if (this.boss2?.alive) return;
+    this.boss2 = new BossBalboa(this.scene, LANE.centerX, -160);
+    this.boss2.setVelocityY(600);
+    this.group.add(this.boss2);
+  }
+
+  private spawnMorgan(): void {
+    if (this.boss3?.alive) return;
+    this.boss3 = new BossMorgan(this.scene, LANE.centerX, -160);
+    this.boss3.setVelocityY(600);
+    this.group.add(this.boss3);
+  }
+
   private pickCfg(): EnemyConfig {
+    if (this.elapsedMs > 50_000 && Math.random() < 0.15) return PIRATA_CFG;
+    if (this.elapsedMs > 40_000 && Math.random() < 0.2) return PERRO_CFG;
     if (this.elapsedMs > 30_000 && Math.random() < 0.25) return CONQUISTADOR_CFG;
+    if (this.elapsedMs > 20_000 && Math.random() < 0.2) return BALLESTERO_CFG;
     return SAILOR_CFG;
   }
 
@@ -96,7 +133,7 @@ export class EnemySpawner {
     const children = this.group.getChildren() as Enemy[];
     for (let i = 0; i < children.length; i++) {
       const e = children[i];
-      if (!e.alive || e === this.boss) continue;
+      if (!e.alive || e === this.boss || e === this.boss2 || e === this.boss3) continue;
       if (e.y > bottomY + 100 || e.y < topY - 200) e.kill();
     }
   }

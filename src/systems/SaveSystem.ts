@@ -5,9 +5,10 @@ export interface RunStats {
   bestKills: number;
   bestGold: number;
   totalRuns: number;
+  completedChapters: string[];
 }
 
-const DEFAULTS: RunStats = { bestDistance: 0, bestKills: 0, bestGold: 0, totalRuns: 0 };
+const DEFAULTS: RunStats = { bestDistance: 0, bestKills: 0, bestGold: 0, totalRuns: 0, completedChapters: [] };
 
 export const SaveSystem = {
   load(): RunStats {
@@ -29,6 +30,7 @@ export const SaveSystem = {
       bestKills: Math.max(prev.bestKills, kills),
       bestGold: Math.max(prev.bestGold, gold),
       totalRuns: prev.totalRuns + 1,
+      completedChapters: prev.completedChapters,
     };
     try {
       localStorage.setItem(KEY, JSON.stringify(next));
@@ -46,5 +48,17 @@ export const SaveSystem = {
     try {
       localStorage.setItem('defensores_tutorial_v1', '1');
     } catch {}
+  },
+
+  markChapterComplete(levelId: string): void {
+    const s = SaveSystem.load();
+    if (!s.completedChapters.includes(levelId)) {
+      s.completedChapters.push(levelId);
+      try { localStorage.setItem(KEY, JSON.stringify(s)); } catch {}
+    }
+  },
+
+  isChapterComplete(levelId: string): boolean {
+    return SaveSystem.load().completedChapters.includes(levelId);
   },
 };

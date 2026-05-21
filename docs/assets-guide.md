@@ -2,17 +2,102 @@
 
 > **Para:** Rodney (solo developer)
 > **Última actualización:** 2026-05-20
-> **Herramientas cubiertas:** Midjourney · DALL-E 3 (ChatGPT) · Gemini Imagen 3 · Scenario.gg · ElevenLabs · Suno · Udio
+> **Herramientas cubiertas:** PixelLab.ai · Midjourney · DALL-E 3 (ChatGPT) · Gemini Imagen 3 · Scenario.gg · ElevenLabs · Suno · Udio
 
 ---
 
 ## 0. Resumen del pipeline
 
-```
+```text
 Generar con IA → Limpiar fondo (remove.bg / Photoshop) → 
 Exportar PNG transparente → Colocar en public/assets/ → 
 Registrar en PreloadScene.ts → Remover generatePlaceholderTextures()
 ```
+
+### 0.1 PixelLab.ai — Herramienta recomendada para sprites de personajes
+
+[PixelLab.ai](https://pixellab.ai/create?tool=create_image_pixen) es la herramienta **más directa** para este proyecto porque:
+
+- Está especializada en sprites de juegos (no arte general)
+- Fondo transparente nativo (no necesitas remove.bg)
+- Control de outline/contorno incluido
+- Tamaños exactos configurables (hasta 200×200 en free tier — suficiente para todos los personajes)
+- Licencia comercial incluida en el free tier
+- **MCP integration con Claude Code** — se puede llamar desde el CLI
+
+#### Configuración en PixelLab.ai para este proyecto
+
+| Setting | Valor recomendado | Por qué |
+| ------- | ----------------- | ------- |
+| **Tool** | Create image S-XL (new) | Mejor calidad, más tokens de detalle |
+| **Transparent background** | ✓ Activado | Elimina el paso de remove.bg |
+| **Outline** | Strong | Mantiene el contorno negro grueso del estilo cel |
+| **Detail** | Low | Silueta clara, menos ruido visual — ideal para sprites pequeños |
+| **View** | Front / Default | Para personajes de frente/¾ |
+| **View** | Top-down | Para tiles de fondo (lane-tile, side-tile) |
+
+#### Tamaños disponibles vs. sprites del juego
+
+| Sprite del juego | Tamaño final PNG | Generar en PixelLab | Nota |
+| ---------------- | --------------- | ------------------- | ---- |
+| `player` (Tanela) | 96×96 | 128×128 | Redimensionar a 96×96 en exportación |
+| `troop-archer` | 64×64 | 64×64 | Tamaño exacto disponible |
+| `troop-ngabe` | 72×72 | 64×64 o 128×128 | Redimensionar |
+| `enemy-sailor` | 72×72 | 64×64 o 128×128 | Redimensionar |
+| `enemy-conquistador` | 80×80 | 128×128 | Redimensionar |
+| `boss-mendez` | 140×140 | 128×128 o 200×200* | *requiere subir a paid o generar a 128 |
+| `projectile` | 16×32 | 32×64 | Redimensionar a la mitad |
+
+> **Free tier:** 40 generaciones rápidas + 5 lentas diarias, máximo 200×200 px. Suficiente para todos los sprites excepto el boss (usa 200×200 o paga 1 mes para los assets finales).
+
+#### Prompts para PixelLab.ai
+
+Los prompts van en el campo **Description**. Son más cortos que Midjourney porque la herramienta ya entiende el contexto de sprite de juego:
+
+**Tanela (player):**
+```
+Panamanian indigenous woman warrior, chibi style, pre-Columbian gold chest armor frog motif Coclé, red geometric face paint parallel lines mola style, long black hair red band, terracotta fringed skirt, wooden bow right hand, golden aura
+```
+
+**Arquero Guna (troop-archer):**
+```
+Tiny male Guna Yala warrior chibi, turquoise mola geometric pattern shirt black face paint stripes, small bow with arrow notched, compact proportions
+```
+
+**Guerrero Ngäbe (troop-ngabe):**
+```
+Stocky male Ngäbe-Buglé warrior chibi, orange-brown nagua tunic, black red geometric body paint, obsidian-tipped wooden spear, muscular compact build
+```
+
+**Marinero español (enemy-sailor):**
+```
+Spanish sailor 16th century enemy chibi, dirty white shirt dark pants red bandana, short cutlass, scruffy beard, angry expression, dark red accent
+```
+
+**Conquistador (enemy-conquistador):**
+```
+Spanish Conquistador soldier enemy chibi, morion helmet silver-blue partial armor, longsword, cross on chest, stocky imposing, blue-gray color theme
+```
+
+**Boss Diego Méndez (boss-mendez):**
+```
+Large imposing Spanish Conquistador captain boss, ornate dark blue gold armor, plumed helmet, golden cross chest, jeweled sword, dark red menacing aura, much larger than regular enemies
+```
+
+**Flecha proyectil (projectile):**
+```
+Indigenous arrow projectile vertical, obsidian tip pointing up, wooden shaft, red turquoise feather fletching at bottom, minimal simple design
+```
+
+#### Workflow sugerido con PixelLab.ai
+
+1. Genera a 128×128 o 64×64 según la tabla
+2. Descarga el PNG (transparent background ya incluido)
+3. Redimensiona en **Photoshop / GIMP / Preview** al tamaño final del juego
+4. Si el outline se ve muy fino al reducir: regresa a PixelLab y usa **Outline = Strong** o genera a tamaño más grande
+5. Coloca en `public/assets/sprites/`
+
+---
 
 **Prioridad de assets (orden de producción sugerido):**
 
@@ -450,6 +535,8 @@ Vertical seamless tile texture, 128x256. Top-down dense tropical rainforest. Dar
 
 **Herramienta principal:** [ElevenLabs Sound Effects](https://elevenlabs.io/sound-effects)
 
+**Alternativa Gemini:** [Google SoundFX](https://aitestkitchen.withgoogle.com/tools/sound-fx) — genera SFX cortos a partir de descripción de texto. Misma calidad que ElevenLabs para efectos simples, sin límite diario en el free tier de AI Test Kitchen.
+
 **Formato de exportación:** WAV o MP3, 44.1 kHz, mono o stereo según el efecto.
 
 **Carpeta destino:** `public/assets/audio/sfx/`
@@ -474,6 +561,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 **Prompt ElevenLabs:**
 > *"Bow arrow release and whoosh through the air, sharp string twang, fast short sound"*
 
+**Prompt Gemini SoundFX:**
+> *"Wooden bow arrow release, sharp twang of bowstring, arrow whoosh flying through air, short 0.3 seconds"*
+
 **Alternativa Freesound:** buscar "arrow whoosh release"
 
 ---
@@ -489,6 +579,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 **Prompt ElevenLabs:**
 > *"Arrow hitting flesh, soft thud impact, short punchy sound"*
 
+**Prompt Gemini SoundFX:**
+> *"Arrow piercing flesh, soft organic thud impact, punchy short hit sound, 0.2 seconds"*
+
 ---
 
 ### SFX-03: Golpe crítico
@@ -501,6 +594,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 
 **Prompt ElevenLabs:**
 > *"Heavy critical hit impact, metallic crash combined with thud, powerful and satisfying"*
+
+**Prompt Gemini SoundFX:**
+> *"Heavy critical hit, metallic clash and deep thud combined, powerful impact with short reverb tail, satisfying game hit sound, 0.4 seconds"*
 
 ---
 
@@ -515,6 +611,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 **Prompt ElevenLabs:**
 > *"Enemy dying, short pain groan, small golden coins jingling sparkle reward sound together"*
 
+**Prompt Gemini SoundFX:**
+> *"Enemy death sound, quick male grunt of pain followed immediately by golden coins jingling and a brief sparkle chime, 0.5 seconds"*
+
 ---
 
 ### SFX-05: Puerta positiva
@@ -527,6 +626,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 
 **Prompt ElevenLabs:**
 > *"Magical power-up chime, crystal bell ascending arpeggio, positive reinforcement sound, bright and cheerful"*
+
+**Prompt Gemini SoundFX:**
+> *"Positive power-up chime, bright crystal bells ascending arpeggio three notes, magical sparkle tail, cheerful and rewarding game UI sound, 0.6 seconds"*
 
 ---
 
@@ -541,6 +643,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 **Prompt ElevenLabs:**
 > *"Negative buzzer descending tone, whoosh of loss, disappointment sound, low pitched"*
 
+**Prompt Gemini SoundFX:**
+> *"Negative game buzzer, low pitched descending tone, quick whoosh of failure, disappointing and punishing sound, 0.6 seconds"*
+
 ---
 
 ### SFX-07: Puerta upgrade dorada
@@ -553,6 +658,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 
 **Prompt ElevenLabs:**
 > *"Epic upgrade power-up fanfare, short heroic brass sting, golden shimmer sparkle, triumphant"*
+
+**Prompt Gemini SoundFX:**
+> *"Epic upgrade fanfare, short heroic brass sting two notes ascending, golden shimmer and sparkle tail, triumphant and powerful, 1 second"*
 
 ---
 
@@ -567,6 +675,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 **Prompt ElevenLabs:**
 > *"Ominous boss enemy entrance, deep reverberant war drum hit, threatening low rumble, dramatic pause"*
 
+**Prompt Gemini SoundFX:**
+> *"Ominous boss entrance, single massive war drum hit with long deep reverb, sub-bass rumble fading out, threatening and dramatic, 2 seconds"*
+
 ---
 
 ### SFX-09: Jugador recibe daño
@@ -579,6 +690,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 
 **Prompt ElevenLabs:**
 > *"Female warrior pain grunt, short impact sound, taking damage in a game"*
+
+**Prompt Gemini SoundFX:**
+> *"Young woman short pain grunt, quick impact body hit sound, warrior taking damage, brief and punchy, 0.4 seconds"*
 
 **Alternativa ElevenLabs TTS (voz):** Generar un grito corto "¡Aaah!" con una voz femenina latinoamericana usando el generador de voz de ElevenLabs. Modelo: Eleven Multilingual v2.
 
@@ -595,6 +709,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 **Prompt ElevenLabs:**
 > *"Victory fanfare, short triumphant indigenous drums and flute melody, celebratory and uplifting, Panama tribal style"*
 
+**Prompt Gemini SoundFX:**
+> *"Victory fanfare, tribal drums crescendo with joyful bamboo flute melody, celebratory indigenous Latin American style, uplifting and triumphant, 3 seconds"*
+
 ---
 
 ### SFX-11: Derrota / Game Over
@@ -607,6 +724,9 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 
 **Prompt ElevenLabs:**
 > *"Game over defeat sound, descending low horn, somber and sorrowful, short"*
+
+**Prompt Gemini SoundFX:**
+> *"Game over defeat sound, low brass horn descending two notes, somber and mournful tone fading out, sad and defeated feeling, 2 seconds"*
 
 ---
 
@@ -621,11 +741,16 @@ this.sound.play('sfx-shoot', { volume: 0.6 });
 **Prompt ElevenLabs:**
 > *"UI button click, small wooden tap, clean, short"*
 
+**Prompt Gemini SoundFX:**
+> *"UI button click, small dry wooden tap, clean and minimal, very short 0.08 seconds"*
+
 ---
 
 ## 8. Audio — Música
 
-**Herramientas principales:** [Suno](https://suno.com) · [Udio](https://udio.com)
+**Herramientas principales:** [Suno](https://suno.com) · [Udio](https://udio.com) · [Google MusicFX](https://aitestkitchen.withgoogle.com/tools/music-fx)
+
+> **Gemini MusicFX:** genera loops de hasta 70 segundos. Para obtener el loop completo usa el botón **"Loop"** antes de descargar. Produce instrumentales de alta calidad sin necesidad de cuenta — usa tu Google account.
 
 **Formato:** MP3 320 kbps o WAV. Loops deben comenzar y terminar en el mismo beat para que Phaser los repita sin glitch.
 
@@ -661,6 +786,11 @@ instrumental tribal battle music, Panama indigenous warrior, Congo drums from Co
 [Instrumental] [No Vocals] Panama indigenous tribal battle theme, Congo drumming, Guna flute, mejoranera guitar, 140 BPM, intense, action game soundtrack, jungle combat, loop seamlessly
 ```
 
+**Prompt Gemini MusicFX:**
+```
+Intense tribal battle music, Panama indigenous style, Afro-Panamanian Congo drums driving rhythm, bamboo flute melody, acoustic guitar plucking, fast 140 BPM percussion, jungle atmosphere, no vocals, action game loop
+```
+
 **Instrumentación ideal:**
 - Bajo rítmico de tambores Congo (afropanameño)
 - Melodía de flauta Guna (bambú o caña)
@@ -689,6 +819,11 @@ epic boss battle music, Spanish colonial conquistador theme, dramatic orchestra 
 [Instrumental] [No Vocals] Boss fight music, Spanish colonial vs indigenous warrior, dark orchestral brass, war drums, 160 BPM, intense epic, hybrid orchestral tribal, game battle theme, loop
 ```
 
+**Prompt Gemini MusicFX:**
+```
+Epic boss battle music, dark orchestral brass section, menacing low strings, thunderous war drums, 160 BPM urgent tempo, hybrid orchestral and tribal percussion, tense and threatening, no vocals, video game boss fight loop
+```
+
 ---
 
 ### MUSIC-03: Tema del menú principal
@@ -710,6 +845,11 @@ instrumental main menu theme, Panama indigenous mystical adventure, mejoranera g
 [Instrumental] [No Vocals] Panama indigenous adventure main menu, mejoranera guitar, soft tribal drums, Guna bamboo flute, mystical 100 BPM, relaxed but adventurous, mobile game loop
 ```
 
+**Prompt Gemini MusicFX:**
+```
+Mystical adventure main menu music, acoustic five-string guitar gentle melody, soft tribal drums, bamboo flute, 100 BPM relaxed tempo, indigenous Latin American feel, mysterious and inviting, no vocals, mobile game loop
+```
+
 ---
 
 ### MUSIC-04: Jingle de victoria (stinger corto)
@@ -724,6 +864,11 @@ instrumental main menu theme, Panama indigenous mystical adventure, mejoranera g
 **Prompt Suno:**
 ```
 short victory fanfare stinger 6 seconds, triumphant indigenous Panama flute and drums ascending, celebratory, uplifting ending, game win sound
+```
+
+**Prompt Gemini MusicFX:**
+```
+Short victory fanfare stinger, tribal drums building to crescendo, joyful bamboo flute ascending phrase, celebratory indigenous percussion ending, uplifting 6 second game win jingle, no vocals
 ```
 
 ---
@@ -844,45 +989,45 @@ Esto reduce draw calls de ~15 a 1, crítico para 60fps en mobile.
 
 | Asset | Status | Prioridad |
 |-------|--------|-----------|
-| `player` — Tanela | ⬜ Pendiente | 🔴 Alta |
-| `troop-archer` — Arquero Guna | ⬜ Pendiente | 🔴 Alta |
-| `troop-ngabe` — Guerrero Ngäbe | ⬜ Pendiente | 🟡 Media |
-| `enemy-sailor` — Marinero | ⬜ Pendiente | 🔴 Alta |
-| `enemy-conquistador` — Conquistador | ⬜ Pendiente | 🔴 Alta |
-| `boss-mendez` — Diego Méndez | ⬜ Pendiente | 🟡 Media |
-| `lane-tile` — Camino | ⬜ Pendiente | 🔴 Alta |
-| `side-tile` — Selva | ⬜ Pendiente | 🔴 Alta |
-| `gate-positive` — Puerta verde | ⬜ Pendiente | 🔴 Alta |
-| `gate-negative` — Puerta roja | ⬜ Pendiente | 🔴 Alta |
-| `gate-upgrade` — Puerta dorada | ⬜ Pendiente | 🟡 Media |
-| `projectile` — Flecha | ⬜ Pendiente | 🟢 Baja |
-| `obstacle-barrel` — Barril | ⬜ Pendiente | 🟢 Baja |
+| `player` — Tanela | ✅ Integrado (PixelLab 2026-05-20) | 🔴 Alta |
+| `troop-archer` — Arquero Guna | ✅ Integrado (PixelLab 2026-05-20) | 🔴 Alta |
+| `troop-ngabe` — Guerrero Ngäbe | ✅ Integrado (PixelLab 2026-05-20) | 🟡 Media |
+| `enemy-sailor` — Marinero | ✅ Integrado (ChatGPT 2026-05-20) | 🔴 Alta |
+| `enemy-conquistador` — Conquistador | ✅ Integrado (ChatGPT 2026-05-20) | 🔴 Alta |
+| `boss-mendez` — Diego Méndez | ✅ Integrado (ChatGPT 2026-05-20) | 🟡 Media |
+| `lane-tile` — Camino | ✅ Integrado (ChatGPT 2026-05-20) | 🔴 Alta |
+| `side-tile` — Selva | ✅ Integrado (ChatGPT 2026-05-20) | 🔴 Alta |
+| `gate-positive` — Puerta verde | ✅ Integrado (PixelLab 2026-05-20) | 🔴 Alta |
+| `gate-negative` — Puerta roja | ✅ Integrado (PixelLab 2026-05-20) | 🔴 Alta |
+| `gate-upgrade` — Puerta dorada | ✅ Integrado (PixelLab 2026-05-20) | 🟡 Media |
+| `projectile` — Flecha | ✅ Integrado (PixelLab 2026-05-20) | 🟢 Baja |
+| `obstacle-barrel` — Barril | ✅ Integrado (PixelLab 2026-05-20) | 🟢 Baja |
 
 ### SFX (MVP — mínimo 6)
 
 | SFX | Status | Prioridad |
 |-----|--------|-----------|
-| `sfx-shoot` | ⬜ Pendiente | 🔴 Alta |
-| `sfx-hit` | ⬜ Pendiente | 🔴 Alta |
-| `sfx-gate-positive` | ⬜ Pendiente | 🔴 Alta |
-| `sfx-gate-negative` | ⬜ Pendiente | 🔴 Alta |
-| `sfx-kill` | ⬜ Pendiente | 🟡 Media |
-| `sfx-victory` | ⬜ Pendiente | 🟡 Media |
-| `sfx-defeat` | ⬜ Pendiente | 🟡 Media |
-| `sfx-boss-appear` | ⬜ Pendiente | 🟡 Media |
-| `sfx-player-hit` | ⬜ Pendiente | 🟢 Baja |
-| `sfx-crit` | ⬜ Pendiente | 🟢 Baja |
-| `sfx-gate-upgrade` | ⬜ Pendiente | 🟢 Baja |
-| `sfx-ui-click` | ⬜ Pendiente | 🟢 Baja |
+| `sfx-shoot` | ✅ Integrado (2026-05-20) | 🔴 Alta |
+| `sfx-hit` | ✅ Integrado (2026-05-20) | 🔴 Alta |
+| `sfx-gate-positive` | ✅ Integrado (2026-05-20) | 🔴 Alta |
+| `sfx-gate-negative` | ✅ Integrado (2026-05-20) | 🔴 Alta |
+| `sfx-kill` | ✅ Integrado (2026-05-20) | 🟡 Media |
+| `sfx-victory` | ✅ Integrado (2026-05-20) | 🟡 Media |
+| `sfx-defeat` | ✅ Integrado (2026-05-20) | 🟡 Media |
+| `sfx-boss-appear` | ✅ Integrado (2026-05-20) | 🟡 Media |
+| `sfx-player-hit` | ✅ Integrado (2026-05-20) | 🟢 Baja |
+| `sfx-crit` | ✅ Integrado (2026-05-20) | 🟢 Baja |
+| `sfx-gate-upgrade` | ✅ Integrado (2026-05-20) | 🟢 Baja |
+| `sfx-ui-click` | ✅ Integrado (2026-05-20) | 🟢 Baja |
 
 ### Música (MVP — mínimo 1 track)
 
 | Track | Status | Prioridad |
 |-------|--------|-----------|
-| `music-game-cap1` — Gameplay | ⬜ Pendiente | 🔴 Alta |
-| `music-boss` — Boss fight | ⬜ Pendiente | 🟡 Media |
-| `music-menu` — Menú | ⬜ Pendiente | 🟡 Media |
-| `music-victory-jingle` — Victoria | ⬜ Pendiente | 🟢 Baja |
+| `music-game-cap1` — Gameplay | ✅ Integrado (2026-05-20) | 🔴 Alta |
+| `music-boss` — Boss fight | ✅ Integrado (2026-05-20) | 🟡 Media |
+| `music-menu` — Menú | ✅ Integrado (2026-05-20) | 🟡 Media |
+| `music-victory-jingle` — Victoria | ✅ Integrado (2026-05-20) | 🟢 Baja |
 
 ---
 

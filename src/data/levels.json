@@ -18,6 +18,44 @@
         { "atM": 65, "enemy": "conquistador", "count": 3, "intervalMs": 1000 },
         { "atM": 75, "enemy": "boss-mendez",  "count": 1, "intervalMs": 0 }
       ]
+    },
+    {
+      "id": "darien-1513-1",
+      "chapter": 2,
+      "name": "Cruce del Darién",
+      "durationM": 100,
+      "waves": [
+        { "atM": 0,   "enemy": "sailor",       "count": 3, "intervalMs": 900 },
+        { "atM": 10,  "enemy": "ballestero",   "count": 2, "intervalMs": 1000 },
+        { "atM": 20,  "enemy": "ballestero",   "count": 4, "intervalMs": 900 },
+        { "atM": 25,  "enemy": "perro-caza",   "count": 3, "intervalMs": 500 },
+        { "atM": 35,  "enemy": "ballestero",   "count": 5, "intervalMs": 800 },
+        { "atM": 40,  "enemy": "perro-caza",   "count": 5, "intervalMs": 400 },
+        { "atM": 50,  "enemy": "conquistador", "count": 3, "intervalMs": 1100 },
+        { "atM": 60,  "enemy": "ballestero",   "count": 6, "intervalMs": 700 },
+        { "atM": 70,  "enemy": "perro-caza",   "count": 6, "intervalMs": 350 },
+        { "atM": 75,  "enemy": "conquistador", "count": 4, "intervalMs": 1000 },
+        { "atM": 90,  "enemy": "boss-balboa",  "count": 1, "intervalMs": 0 }
+      ]
+    },
+    {
+      "id": "panama-viejo-1671-1",
+      "chapter": 3,
+      "name": "Defensa de Panamá Viejo",
+      "durationM": 120,
+      "waves": [
+        { "atM": 0,   "enemy": "pirata",       "count": 4, "intervalMs": 800 },
+        { "atM": 10,  "enemy": "pirata",       "count": 5, "intervalMs": 700 },
+        { "atM": 20,  "enemy": "conquistador", "count": 3, "intervalMs": 1000 },
+        { "atM": 30,  "enemy": "pirata",       "count": 6, "intervalMs": 600 },
+        { "atM": 40,  "enemy": "ballestero",   "count": 4, "intervalMs": 900 },
+        { "atM": 50,  "enemy": "pirata",       "count": 7, "intervalMs": 550 },
+        { "atM": 60,  "enemy": "perro-caza",   "count": 5, "intervalMs": 400 },
+        { "atM": 70,  "enemy": "conquistador", "count": 5, "intervalMs": 900 },
+        { "atM": 80,  "enemy": "pirata",       "count": 8, "intervalMs": 500 },
+        { "atM": 90,  "enemy": "ballestero",   "count": 5, "intervalMs": 700 },
+        { "atM": 110, "enemy": "boss-morgan",  "count": 1, "intervalMs": 0 }
+      ]
     }
   ]
 }

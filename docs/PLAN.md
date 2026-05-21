@@ -114,8 +114,11 @@
 
 ### Sprint 1.5 — Pulido y arte final del slice (sem 10–11)
 
-- [ ] Reemplazar placeholders con sprites finales generados con IA *(requiere pipeline Midjourney/Scenario.gg)*
-- [ ] 1 tema musical + 6 SFX clave *(requiere assets de audio externos)*
+- [x] Reemplazar placeholders con sprites finales generados con IA (PixelLab + ChatGPT, 2026-05-20)
+- [x] Assets de audio integrados: 12 SFX + 4 tracks de música, `AudioManager` singleton con cooldown por clave
+- [x] Música: `music-menu` en MainMenuScene, `music-game-cap1` al iniciar GameScene, `music-boss` al aparecer jefe, stop en victoria/derrota
+- [x] SFX: disparo (80 ms cooldown), hit/crit/kill, puertas +/−/upgrade, boss-appear, player-hit (300 ms), victoria, derrota, ui-click
+- [x] Fix boss entrance: velocidad de entrada 600 px/s (antes 80 px/s = 8 s invisible); anuncio "⚔ JEFE FINAL ⚔" animado al aparecer
 - [x] HUD expandido: línea 1 `distancia / tropas / kills`, línea 2 `❤ HP/maxHP  💰 oro`
 - [x] Sistema de HP del jugador (200 HP, enemigos dañan al llegar a PLAYER_Y, flash rojo, barra sobre el sprite)
 - [x] Sistema de oro: `goldValue` por tipo de enemigo (marinero=1, conquistador=3, boss=50); acumulado en HUD y pantallas de fin de run
@@ -139,42 +142,52 @@
 
 **Meta:** Juego "completo" en contenido para los primeros 3 capítulos + metajuego de aldea funcional.
 
-### Sprint 2.1 — Metajuego y aldea (sem 12–13)
-- [ ] `VillageScene` con vista isométrica simple
-- [ ] 5 edificios PRD §4.1: Tótem, Casa del Cacique, Choza del Chamán, Mercado, Altar
-- [ ] `ProgressionSystem` con upgrades persistentes
-- [ ] Flujo: village → mapa de niveles → run → reward → village
+### Sprint 2.1 — Metajuego y progresión (sem 12–13)
+- [x] `ProgressionSystem` con 4 upgrades persistentes (initialTroops, damageBoost, hpBoost, fireRateBonus), niveles 0–3, costo en oro, localStorage
+- [x] `UpgradeScene` — campamento base con 4 tarjetas de upgrade, saldo de oro, botones "¡A COMBATIR!" / "Menú" / Campamento desde end screens
+- [x] Oro del run se transfiere a ProgressionSystem al terminar (victoria o derrota)
+- [x] GameScene lee ProgressionSystem: tropas iniciales (6→12), multiplicadores daño/HP/fireRate aplicados al spawn
+- [ ] `VillageScene` con vista isométrica — pospuesto a Sprint 2.1b (post-Alpha)
+- [ ] 5 edificios PRD §4.1 — pospuesto
+- [ ] Mapa de mundo con progresión visible — pospuesto
 
 ### Sprint 2.2 — Todas las clases de tropa (sem 14–15)
-- [ ] 4 clases adicionales: Emberá, Chamán, Invocador, Jaguar
-- [ ] Sistema de "clase por puerta upgrade" (dorada)
-- [ ] Balanceo inicial vía `data/troops.json`
+- [x] 4 clases adicionales implementadas: **GuerreroEmbera** (medio), **ChamanGuna** (larga distancia), **InvocadorEspiritu** (ráfaga), **JaguarWarrior** (melé devastador)
+- [x] GateSpawner elige clase aleatoria entre 5 opciones en puertas doradas (Ngäbe, Emberá, Chamán, Invocador, Jaguar)
+- [x] `GameScene.troopClassForUpgrade()` despacha la clase correcta por nombre
+- [x] Multiplicadores de progresión aplicados a todas las clases al spawn
+- [ ] Balanceo fino con playtest — pendiente
 
 ### Sprint 2.3 — Capítulos 2 y 3 (sem 16–18)
-- [ ] Cap 2 Darién (1513): ballesteros, perros, jefe Balboa
-- [ ] Cap 3 Panamá Viejo (1671): piratas, barriles explosivos, jefe Morgan
-- [ ] 15–20 niveles totales con curva de dificultad
-- [ ] Mapa de mundo con progresión visible
+- [x] Cap 2 "Cruce del Darién" (1513): **Ballestero** (HP 90, vel 160), **PerroDeCaza** (HP 30, vel 380), **BossBalboa** (2500 HP, barrido + volley azul), level script 11 waves
+- [x] Cap 3 "Defensa de Panamá Viejo" (1671): **Pirata** (HP 110, vel 175), **BossMorgan** (3500 HP, embestida + cañonazo naranja), level script 11 waves
+- [x] `SpawnManager` conoce todas las claves de enemigo (ballestero, perro-caza, pirata, boss-balboa, boss-morgan)
+- [x] `EnemySpawner` maneja boss2/boss3 con `bossUpdate()` y cull correcto
+- [x] `checkBossState()` en GameScene detecta cualquiera de los 3 jefes
+- [x] `MapScene`: mapa de mundo con 3 nodos de capítulo, conectores discontinuos, bloqueo por SaveSystem, badge ⭐ en capítulos completados (2026-05-21)
+- [x] `GameScene.init()` acepta `{ levelId }` desde MapScene; `SaveSystem.markChapterComplete()` al terminar
+- [ ] Sprites propios para Ch2/Ch3 — pendiente (usando placeholders actuales)
 
 ### Sprint 2.4 — Audio + VFX (sem 19)
-- [ ] Música por capítulo (3 temas)
-- [ ] SFX completo (~30 archivos)
-- [ ] VFX: partículas doradas, explosiones, aura de espíritus
-- [ ] Música dinámica (capa de boss)
+- [x] Audio completo integrado (Sprint 1.5): 12 SFX + 4 tracks, AudioManager
+- [x] `VFXSystem` con 6 efectos tween: `goldBurst` (kill), `deathExplosion` (kill), `bossDeathExplosion` (boss muerte + cameras.flash), `gatePositiveFX`, `gateNegativeFX`, `gateUpgradeFX` — integrado en GameScene (2026-05-21)
+- [ ] Música dinámica por capítulo (music-game-cap2, music-game-cap3)
 
 ### Sprint 2.5 — Tienda y economía (sem 20)
-- [ ] Tienda básica con jade/oro/plumas
-- [ ] Sistema de cofres (común, raro, dorado de jefe)
-- [ ] Balance económico v1
+- [x] Economía de oro funcional: goldValue por enemigo, transferencia a ProgressionSystem, upgrades con costo
+- [ ] Tienda con jade/plumas (moneda premium) — pendiente
+- [ ] Sistema de cofres — pendiente
 
 ### Sprint 2.6 — Build móvil estable (sem 21)
-- [ ] Capacitor: AdMob, Preferences, Haptics, ScreenOrientation integrados
-- [ ] Performance: pooling auditado, atlas de texturas, downgrade auto a 30fps
+- [x] Capacitor 6 configurado: `capacitor.config.ts` (`appId: com.infrony.defensoresdelistmo`), scripts `cap:build` / `cap:open`, `vite.config.ts` `base: './'` ya estaba correcto (2026-05-21)
+- [x] `docs/CAPACITOR.md` con pasos de setup, build y firma para Android + iOS (2026-05-21)
+- [ ] `npx cap add android` + primera APK (requiere Android Studio instalado)
+- [ ] Performance: atlas de texturas, downgrade auto a 30fps
 - [ ] Test en 5 devices distintos (low/mid/high-end iOS + Android)
 
 ### Definition of Done Fase 2
-- [ ] Juego completable de inicio a Cap 3 final
-- [ ] Loop village ↔ run estable
+- [ ] Juego completable de inicio a Cap 3 final (mecánica lista, falta selección de capítulo en UI)
+- [x] Loop campamento ↔ run funcional (UpgradeScene ↔ GameScene)
 - [ ] APK + IPA generados y funcionando
 
 ---
@@ -184,14 +197,17 @@
 **Meta:** Producto medible con datos reales de testers.
 
 ### Sprint 3.1 — Telemetría (sem 22)
-- [ ] Firebase Analytics o PostHog integrado
-- [ ] Eventos clave: run_start, run_end, gate_choice, death, purchase, ad_view
+- [x] `AnalyticsSystem` — capa de abstracción local (localStorage `defensores_analytics_v1`, FIFO 200 eventos, `{ ...event, ts }`) lista para swap a Firebase (2026-05-21)
+- [x] Eventos implementados: `run_start`, `run_end`, `gate_choice`, `boss_appear`, `level_complete`, `upgrade_buy`, `daily_claim`, `mission_claim` — wired en GameScene, UpgradeScene y DailyScene
+- [ ] Swap a Firebase Analytics (post-beta)
 - [ ] Sentry para crash reporting
 - [ ] Dashboard con D1/D7, session length, ARPU
 
 ### Sprint 3.2 — Retención (sem 23–24)
-- [ ] Daily login (7 días)
-- [ ] 3 misiones diarias
+- [x] `DailySystem`: racha de login (hasta 7 días), recompensas [10,15,20,30,40,50,100] oro, `defensores_daily_v1` en localStorage (2026-05-21)
+- [x] `MissionSystem`: 3 misiones diarias (kills:30/25oro, distancia:50m/20oro, puertas:5/15oro), reset automático por fecha, `defensores_missions_v1` (2026-05-21)
+- [x] `DailyScene`: indicador de racha (7 cuadros), botón de reclamar reward diario, 3 tarjetas de misión con barra de progreso; integrada en flujo MainMenu → DailyScene → MapScene (2026-05-21)
+- [x] `MissionSystem.report()` wired en GameScene: kills, distancia (por frame), puertas positivas (2026-05-21)
 - [ ] Battle Pass estructura (sin contenido temporal aún)
 - [ ] Push notifications (energía full, evento)
 
@@ -335,12 +351,15 @@ Cada fin de fase, retrospectiva escrita:
 - [x] `SaveSystem` (`localStorage`): `bestDistance`, `bestKills`, `totalRuns`; guarda al fin de cada run (victoria o derrota)
 - [x] Pantalla de victoria: overlay azul oscuro + "¡VICTORIA!" dorado + cofre placeholder animado + stats + "¡Nueva marca!" si aplica + botones "JUGAR DE NUEVO" / "Menú principal"
 
-**Pendiente (Sprint 1.5 — Pulido y arte):**
+**Completado (Sprint 1.5 — Arte y audio):**
 
-- Reemplazar placeholders con sprites finales generados con IA
-- 1 tema musical + 6 SFX clave (disparo, hit, puerta+, puerta−, jefe, victoria)
-- HUD: oro (preparar campo), HP del líder
-- Onboarding suave (3 tooltips la primera vez)
+- [x] Todos los sprites finales integrados (PixelLab + ChatGPT): 8 sprites + 3 tiles/puertas
+- [x] `AudioManager` singleton: 12 SFX + 4 tracks de música acoplados al juego
+- [x] Fix boss: entrada rápida (600 px/s) + anuncio animado "⚔ JEFE FINAL ⚔"
+- [x] Todos los `setDisplaySize` aplicados (player, tropas, enemigos, boss, proyectil, barril)
+
+**Pendiente (Sprint 1.5 — Cierre):**
+
 - Playtest externo con 3–5 personas no técnicas
 
 **Pendiente Sprint 0.2:**

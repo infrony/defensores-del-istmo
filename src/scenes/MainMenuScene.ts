@@ -7,6 +7,13 @@ export class MainMenuScene extends Phaser.Scene {
   }
 
   create(): void {
+    if (this.cache.audio.has('music-menu')) {
+      this.sound.stopAll();
+      this.sound.play('music-menu', { loop: true, volume: 0.35 });
+    }
+
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.sound.stopAll());
+
     this.add
       .text(GAME_WIDTH / 2, GAME_HEIGHT * 0.3, 'Defensores\ndel Istmo', {
         fontFamily: 'serif',
@@ -49,7 +56,8 @@ export class MainMenuScene extends Phaser.Scene {
       .setOrigin(0.5);
 
     btn.on('pointerup', () => {
-      this.scene.start('GameScene');
+      this.sound.play('sfx-ui-click', { volume: 0.7 });
+      this.scene.start('DailyScene');
     });
   }
 }
